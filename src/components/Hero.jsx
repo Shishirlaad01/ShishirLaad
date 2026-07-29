@@ -5,6 +5,17 @@ export default function Hero() {
     <header className="hero" id="top">
       <div className="hero-circuit"></div>
       <div className="container hero-inner">
+        <Reveal className="hero-photo-wrap">
+          <img
+            className="hero-photo"
+            src="/Pic.jpg"
+            alt="Shishir Kumar Laad"
+            width="896"
+            height="1195"
+            loading="eager"
+            fetchPriority="high"
+          />
+        </Reveal>
         <div>
           <Reveal as="p" className="hero-eyebrow">Portfolio</Reveal>
           <Reveal as="h1">Shishir<br />Kumar Laad.</Reveal>
