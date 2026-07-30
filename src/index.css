@@ -329,9 +329,35 @@ a.connect-row:hover { color: var(--amber-light); }
 .ai-eyebrow { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber-light); margin-bottom: 20px; }
 .ai-inner h2 { font-family: var(--font-display); font-size: clamp(1.8rem, 3.4vw, 2.6rem); font-weight: 700; margin-bottom: 22px; color: #fff; }
 .ai-inner > div:first-child > p { color: rgba(255,255,255,0.72); font-size: 0.98rem; margin-bottom: 26px; max-width: 480px; }
-.ai-list { display: flex; flex-direction: column; gap: 14px; }
-.ai-list li { display: flex; gap: 12px; font-size: 0.92rem; color: rgba(255,255,255,0.85); }
-.ai-list li::before { content: '✓'; color: var(--amber-light); font-weight: 700; flex-shrink: 0; }
+/* Outcome cards — what the AI function actually produced */
+.outcome-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.outcome-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 18px 20px;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+.outcome-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(226,160,92,0.35); }
+.outcome-card h4 {
+  font-family: var(--font-display);
+  font-size: 0.88rem; font-weight: 700;
+  color: var(--amber-light);
+  margin-bottom: 10px;
+}
+.outcome-card ul { display: flex; flex-direction: column; gap: 8px; }
+.outcome-card li {
+  position: relative;
+  font-size: 0.82rem; line-height: 1.5;
+  color: rgba(255,255,255,0.72);
+  padding-left: 14px;
+}
+.outcome-card li::before {
+  content: '';
+  position: absolute; left: 0; top: 8px;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--amber-light);
+}
 
 .gpt-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-soft); margin-bottom: 16px; }
 .gpt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -421,6 +447,10 @@ a.connect-row:hover { color: var(--amber-light); }
   .exp-grid { grid-template-columns: 1fr; }
   .ai-inner { grid-template-columns: 1fr; }
   .bento { grid-template-columns: 1fr; }
+  .outcome-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .outcome-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
   .nav { padding: 20px 24px; }

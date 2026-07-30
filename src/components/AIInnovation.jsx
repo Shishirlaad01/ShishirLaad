@@ -10,11 +10,34 @@ const gpts = [
   { name: "Figma's MD File Generator (Private)", desc: 'Converts Figma design files to structured markdown', url: 'https://chatgpt.com/g/g-697fb5bb3948819186c74f007f5e8d19-hb-figma-md-creator-3' },
 ];
 
-const aiPoints = [
-  'Defined organizational AI strategy and tooling',
-  'Hands-on training and onboarding for 40+ developers',
-  'Implemented ABBYY Vantage (AI-based OCR)',
-  'Prompt Engineering & Workflow Automation',
+const outcomes = [
+  {
+    title: 'Team Scaling',
+    points: [
+      'Supported growth from 4 to 30+ AI professionals.',
+      'Hands-on training and onboarding for 40+ developers.',
+    ],
+  },
+  {
+    title: 'Delivery Process',
+    points: [
+      'Defined organizational AI strategy and tooling.',
+      'Established structured project intake, estimation, planning, and review practices.',
+    ],
+  },
+  {
+    title: 'AI Enablement',
+    points: [
+      'Prompt engineering and workflow automation.',
+      'Conducted hands-on training and introduced AI-assisted delivery workflows.',
+    ],
+  },
+  {
+    title: 'Reusable Accelerators',
+    points: [
+      'Developed custom GPTs, prompt frameworks, documentation tools, and workflow automations.',
+    ],
+  },
 ];
 
 export default function AIInnovation() {
@@ -23,11 +46,18 @@ export default function AIInnovation() {
       <div className="container ai-inner">
         <Reveal>
           <p className="ai-eyebrow">AI Innovation</p>
-          <h2>Scaling AI from 4 to 30+ Engineers</h2>
-          <p>Led the transformation of organizational development practices by instituting AI-first workflows. Founded the AI practice, owned recruitment and training, and established vibe-coding standards that reduced turnaround time by 20-30%.</p>
-          <ul className="ai-list">
-            {aiPoints.map(pt => <li key={pt}>{pt}</li>)}
-          </ul>
+          <h2>Built and Scaled an AI Delivery Functional Team</h2>
+          <p>Initiated and supported the growth of an internal AI engineering function by introducing structured delivery practices, project governance, AI-assisted workflows, reusable accelerators, and practical team enablement. Reduced turnaround time by 20-30%.</p>
+          <div className="outcome-grid">
+            {outcomes.map(o => (
+              <div key={o.title} className="outcome-card">
+                <h4>{o.title}</h4>
+                <ul>
+                  {o.points.map(p => <li key={p}>{p}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
         </Reveal>
         <Reveal>
           <p className="gpt-label">Custom GPTs Developed</p>
