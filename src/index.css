@@ -388,3 +388,9 @@ a.connect-row:hover { color: var(--amber-light); }
   .t-item { width: 100%; align-self: flex-start !important; padding-left: 28px; }
   .t-item:nth-child(odd) .t-dot, .t-item:nth-child(even) .t-dot { left: -1px; right: auto; }
 }
+
+/* Very narrow phones: resume button collapses to its icon */
+@media (max-width: 430px) {
+  .nav-resume span { display: none; }
+  .nav-resume { padding: 9px 11px; gap: 0; }
+}
