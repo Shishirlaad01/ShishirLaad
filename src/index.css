@@ -151,7 +151,7 @@ ul { list-style: none; }
 }
 .hero-inner {
   position: relative; z-index: 1;
-  display: grid; grid-template-columns: auto 1.1fr 0.9fr; gap: 44px;
+  display: grid; grid-template-columns: auto minmax(0, 1.35fr) minmax(0, 0.75fr); gap: 44px;
   align-items: center;
 }
 
@@ -185,14 +185,34 @@ ul { list-style: none; }
 }
 .hero h1 {
   font-family: var(--font-display);
-  font-size: clamp(2.6rem, 5.5vw, 4.4rem);
+  font-size: clamp(2.3rem, 4.4vw, 3.6rem);
   font-weight: 800; letter-spacing: -0.02em; line-height: 1.08;
   color: #fff;
 }
-.hero-badges { display: flex; gap: 10px; margin-top: 30px; flex-wrap: wrap; }
+
+/* Role line — the headline claim, sits directly under the name */
+.hero-role {
+  font-family: var(--font-display);
+  font-size: clamp(1.02rem, 1.5vw, 1.28rem);
+  font-weight: 600; line-height: 1.35;
+  margin-top: 14px;
+  background: linear-gradient(90deg, var(--amber-light), var(--rose));
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+
+/* Supporting paragraph */
+.hero-lead {
+  font-size: 0.98rem; line-height: 1.65;
+  color: rgba(255,255,255,0.72);
+  margin-top: 18px;
+  max-width: 52ch;
+}
+
+.hero-badges { display: flex; gap: 9px; margin-top: 26px; flex-wrap: wrap; }
 .hero-badges span {
-  font-size: 0.8rem; font-weight: 500; color: rgba(255,255,255,0.85);
-  border: 1px solid rgba(255,255,255,0.22); border-radius: 999px; padding: 7px 16px;
+  font-size: 0.78rem; font-weight: 500; color: rgba(255,255,255,0.85);
+  border: 1px solid rgba(255,255,255,0.22); border-radius: 999px; padding: 6px 14px;
 }
 .hero-connect { text-align: right; }
 .connect-label {
@@ -237,12 +257,61 @@ a.connect-row:hover { color: var(--amber-light); }
 .credential-card li span { display: block; font-size: 0.78rem; color: var(--text-soft); margin-top: 2px; }
 
 .exp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+/* Outlined group container — structure without a heavy filled panel */
+.exp-block {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  transition: border-color 0.25s ease;
+}
+.exp-block:hover { border-color: rgba(20,23,31,0.16); }
 .exp-block h4 {
   font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--text-soft); margin-bottom: 14px;
+  color: var(--amber); margin-bottom: 14px;
 }
 .exp-block .pill-row { margin-top: 0; }
-.exp-block .pill-row span { background: var(--cream); border-color: var(--border); font-size: 0.78rem; padding: 6px 14px; }
+/* white chips on the cream page — the contrast lives here, not in the container */
+.exp-block .pill-row span {
+  background: #fff;
+  border-color: var(--border);
+  font-size: 0.78rem; padding: 6px 14px;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.exp-block .pill-row span:hover {
+  border-color: rgba(200,117,47,0.35);
+  color: #8a4f16;
+}
+
+/* Tools / Domains — supporting rows, intentionally lighter than the groups above */
+.strip {
+  display: flex; align-items: baseline; gap: 22px;
+  padding-top: 22px; margin-top: 22px;
+  border-top: 1px solid var(--border);
+}
+.strip:first-of-type { margin-top: 44px; }
+.strip-label {
+  flex-shrink: 0; min-width: 150px;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-soft);
+}
+.strip-tags { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.strip-tags span {
+  position: relative;
+  font-size: 0.84rem; color: var(--text-muted);
+}
+/* middot separators instead of chips — keeps these visually quieter */
+.strip-tags span:not(:last-child)::after {
+  content: '·';
+  position: absolute; right: -11px;
+  color: var(--text-soft); opacity: 0.7;
+}
+
+@media (max-width: 720px) {
+  .strip { flex-direction: column; gap: 12px; }
+  .strip-label { min-width: 0; }
+}
 
 /* ---------- AI Innovation (dark copper) ---------- */
 .ai-section {

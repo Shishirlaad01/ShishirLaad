@@ -16,13 +16,19 @@ export default function Hero() {
             fetchPriority="high"
           />
         </Reveal>
-        <div>
-          <Reveal as="p" className="hero-eyebrow">Portfolio</Reveal>
-          <Reveal as="h1">Shishir<br />Kumar Laad.</Reveal>
+        <div className="hero-copy">
+          <Reveal as="h1">Shishir Kumar Laad</Reveal>
+          <Reveal as="p" className="hero-role">AI &amp; Digital Product Delivery Manager</Reveal>
+          <Reveal as="p" className="hero-lead">
+            I lead cross-functional teams and international client engagements from product
+            discovery and requirements through development, implementation, and successful delivery.
+          </Reveal>
           <Reveal className="hero-badges">
-            <span>Project Manager</span>
-            <span>Scrum Master</span>
-            <span>IIM Kashipur</span>
+            <span>AI Delivery</span>
+            <span>Project Management</span>
+            <span>Product Discovery</span>
+            <span>Business Analysis</span>
+            <span>Presales</span>
           </Reveal>
         </div>
         <Reveal className="hero-connect">

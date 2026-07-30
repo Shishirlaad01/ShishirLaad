@@ -1,11 +1,5 @@
 import Reveal from './Reveal.jsx';
 
-const summaryPills = [
-  'Project Management', 'Business Analysis', 'Delivery Management',
-  'Client Engagement', 'Software Testing', 'Quality Assurance',
-  'Risk Mitigation', 'AI Strategy & Team Building',
-];
-
 const credentials = [
   { title: 'Certified Project Management', sub: 'IIM Kashipur' },
   { title: 'Certified Scrum Master (CSM)', sub: 'Scrum Alliance' },
@@ -15,38 +9,38 @@ const credentials = [
 
 const expertiseGroups = [
   {
-    title: 'Project Management',
-    tags: ['Program Management', 'Agile/Scrum', 'Sprint Planning', 'Release Management', 'Risk Management', 'Stakeholder Management', 'Scrum', 'Kanban', 'Waterfall', 'Hybrid'],
+    title: 'Delivery Leadership',
+    tags: ['Project Management', 'Program Coordination', 'Delivery Governance', 'Risk Management', 'Agile', 'Scrum', 'Waterfall', 'QA Strategy'],
   },
   {
-    title: 'Tools & Documentation',
-    tags: ['JIRA', 'Trello', 'Basecamp', 'Redmine', 'Postman', 'Figma', 'Fiddler', 'BRD', 'FRD', 'SRS', 'SOW', 'User Stories'],
+    title: 'Product and Business Analysis',
+    tags: ['Discovery Workshops', 'Requirements Engineering', 'FRD', 'PRD', 'User Stories', 'Process Mapping', 'UAT'],
   },
   {
-    title: 'QA & Automation',
-    tags: ['Functional/API/DB Testing', 'Regression Testing', 'Selenium'],
+    title: 'AI and Digital Transformation',
+    tags: ['AI Product Delivery', 'Generative AI', 'Workflow Automation', 'Prompt Engineering', 'AI Governance'],
   },
   {
-    title: 'Domains & Compliance',
-    tags: ['FinTech', 'Healthcare', 'E-Governance', 'E-commerce', 'Insurance', 'HIPAA', 'GDPR'],
+    title: 'Client and Commercial Management',
+    tags: ['Presales', 'Solution Consulting', 'Client Engagement', 'Estimation', 'Proposal Development', 'Stakeholder Management'],
   },
 ];
+
+const tools = ['Jira', 'Confluence', 'Figma', 'ChatGPT', 'Claude', 'SQL', 'Postman', 'AWS'];
+
+const domains = ['FinTech', 'Healthcare', 'E-Governance', 'SaaS', 'E-commerce', 'Insurance', 'HIPAA', 'GDPR'];
 
 export default function Intro() {
   return (
     <section className="section" id="about">
       <div className="container">
         <Reveal as="h2" className="intro-heading">
-          15+ years delivering enterprise software across FinTech, Healthcare, E-Governance, and SaaS.
+          15+ Years Delivering AI and Digital Products Across FinTech, Healthcare, E-Governance, and SaaS
         </Reveal>
         <Reveal className="intro-text">
-          <p>Certified Project Manager & Scrum Master experienced in leading complex delivery cycles in Agile, Waterfall, and Hybrid setups. I've scaled organizations from startups to enterprise clients, building teams of up to 74 members and driving delivery excellence across international stakeholders in New Zealand, USA, South Africa, and the UK.</p>
-          <p>Recently, I founded and scaled an org-wide AI practice from a 4-member pilot team to 30+ engineers, defining strategy, custom tooling, and "vibe coding" standards adopted by 40+ developers.</p>
+          <p>Certified Project Manager and Scrum Master with experience leading international client engagements, cross-functional development teams, and complex digital products across FinTech, Healthcare, E-Governance, and SaaS.</p>
+          <p>My experience covers product discovery, business analysis, presales, delivery governance, stakeholder management, and end-to-end implementation using Agile, Waterfall, and Hybrid methodologies. I have also contributed to establishing and scaling an AI engineering function from 4 to more than 30 professionals.</p>
         </Reveal>
-        <Reveal className="pill-row">
-          {summaryPills.map(p => <span key={p}>{p}</span>)}
-        </Reveal>
-
         <div className="expertise" id="skills">
           <Reveal>
             <h3 className="expertise-title">Expertise Stack</h3>
@@ -71,6 +65,20 @@ export default function Intro() {
             ))}
           </div>
         </div>
+
+        {/* Supporting detail — deliberately lighter than the four competency groups */}
+        <Reveal className="strip">
+          <h4 className="strip-label">Tools</h4>
+          <div className="strip-tags">
+            {tools.map(t => <span key={t}>{t}</span>)}
+          </div>
+        </Reveal>
+        <Reveal className="strip">
+          <h4 className="strip-label">Domains &amp; Compliance</h4>
+          <div className="strip-tags">
+            {domains.map(d => <span key={d}>{d}</span>)}
+          </div>
+        </Reveal>
       </div>
     </section>
   );
