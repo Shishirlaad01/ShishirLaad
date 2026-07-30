@@ -81,7 +81,21 @@ export default function Nav() {
           </a>
         ))}
       </div>
-      <a href="#contact" className="nav-cta" onClick={() => setOpen(false)}>Get in touch</a>
+      <div className="nav-actions">
+        <a
+          href="/Shishir_Kumar_Laad_Resume_8.pdf"
+          className="nav-resume"
+          download
+          aria-label="Download Resume"
+          onClick={() => setOpen(false)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M5 21h14" />
+          </svg>
+          <span>Download Resume</span>
+        </a>
+        <a href="#contact" className="nav-cta" onClick={() => setOpen(false)}>Get in touch</a>
+      </div>
     </nav>
   );
 }
