@@ -1,35 +1,84 @@
 import { useEffect, useState } from 'react';
 
+// Kept in document order so clicking straight down the nav never jumps backward.
+const links = [
+  { href: '#about', label: 'About' },
+  { href: '#skills', label: 'Skills' },
+  { href: '#ai', label: 'AI Innovation' },
+  { href: '#experience', label: 'Experience' },
+  { href: '#projects', label: 'Projects' },
+  { href: '#contact', label: 'Contact' },
+];
+
 export default function Nav() {
-  const [scrolled, setScrolled] = useState(false);
+  const [compact, setCompact] = useState(false);
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState('');
 
   useEffect(() => {
+    const ids = links.map(l => l.href.slice(1));
+
     function onScroll() {
-      setScrolled(window.scrollY > 40);
+      const y = window.scrollY;
+      setCompact(y > 60);
+
+      // Scrollspy: of the sections whose top has passed the trigger line, the
+      // lowest one on the page wins. Compared by measured position rather than
+      // array order, because the nav order doesn't match the document order
+      // (AI Innovation sits above Experience in the page).
+      // getBoundingClientRect is used instead of offsetTop because #skills is
+      // nested inside #about, so offsetTop resolves against the wrong parent.
+      const trigger = y + 140;
+      let current = '';
+      let currentTop = -Infinity;
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top + y;
+        if (top <= trigger && top > currentTop) {
+          current = id;
+          currentTop = top;
+        }
+      }
+
+      // Near the very bottom, force the final section active.
+      if (window.innerHeight + y >= document.documentElement.scrollHeight - 4) {
+        current = ids[ids.length - 1];
+      }
+
+      setActive(current);
     }
+
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
     onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, []);
 
-  const links = [
-    { href: '#about', label: 'About' },
-    { href: '#skills', label: 'Skills' },
-    { href: '#experience', label: 'Experience' },
-    { href: '#ai', label: 'AI Innovation' },
-    { href: '#projects', label: 'Projects' },
-  ];
-
   return (
-    <nav className="nav" style={{ background: scrolled ? 'rgba(20,23,31,0.85)' : 'transparent' }}>
-      <div className="nav-logo">SL.</div>
-      <button className="nav-toggle" aria-label="Toggle menu" onClick={() => setOpen(!open)}>
+    <nav className={`nav${compact ? ' compact' : ''}`}>
+      <a href="#top" className="nav-logo" onClick={() => setOpen(false)}>SL.</a>
+      <button
+        className="nav-toggle"
+        aria-label="Toggle menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         <span></span><span></span><span></span>
       </button>
       <div className={`nav-links${open ? ' open' : ''}`}>
         {links.map(link => (
-          <a key={link.href} href={link.href} onClick={() => setOpen(false)}>{link.label}</a>
+          <a
+            key={link.href}
+            href={link.href}
+            className={active === link.href.slice(1) ? 'active' : ''}
+            onClick={() => setOpen(false)}
+          >
+            {link.label}
+          </a>
         ))}
       </div>
       <a href="#contact" className="nav-cta" onClick={() => setOpen(false)}>Get in touch</a>
