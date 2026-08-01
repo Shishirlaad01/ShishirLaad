@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { track } from '../lib/track.js';
 
 // Kept in document order so clicking straight down the nav never jumps backward.
 const links = [
@@ -87,7 +88,7 @@ export default function Nav() {
           className="nav-resume"
           download
           aria-label="Download Resume"
-          onClick={() => setOpen(false)}
+          onClick={() => { track('resume_download'); setOpen(false); }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M5 21h14" />

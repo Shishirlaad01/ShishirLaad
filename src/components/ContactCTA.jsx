@@ -1,4 +1,5 @@
 import Reveal from './Reveal.jsx';
+import { track } from '../lib/track.js';
 
 export default function ContactCTA() {
   return (
@@ -8,7 +9,7 @@ export default function ContactCTA() {
         <Reveal as="p">Currently open to new leadership opportunities. Available for remote roles or relocation.</Reveal>
         <Reveal className="cta-buttons">
           <a className="cta-btn solid" href="mailto:shishirlaad@gmail.com">✉ shishirlaad@gmail.com</a>
-          <a className="cta-btn outline" href="https://linkedin.com/in/77779999nlaad" target="_blank" rel="noopener">in LinkedIn Profile</a>
+          <a className="cta-btn outline" href="https://linkedin.com/in/77779999nlaad" target="_blank" rel="noopener" onClick={() => track('linkedin_cta')}>in LinkedIn Profile</a>
         </Reveal>
         <div className="footer-line">
           <span>© 2026 Shishir Kumar Laad. All rights reserved.</span>

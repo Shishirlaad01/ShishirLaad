@@ -1,4 +1,5 @@
 import Reveal from './Reveal.jsx';
+import { track } from '../lib/track.js';
 
 export default function Hero() {
   return (
@@ -37,7 +38,7 @@ export default function Hero() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
             shishirlaad@gmail.com
           </a>
-          <a className="connect-row" href="https://linkedin.com/in/77779999nlaad" target="_blank" rel="noopener">
+          <a className="connect-row" href="https://linkedin.com/in/77779999nlaad" target="_blank" rel="noopener" onClick={() => track('linkedin_hero')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="9" width="4" height="12" /><circle cx="4" cy="4" r="2" /><path d="M10 9v12M10 13a4 4 0 0 1 8 0v8" /></svg>
             LinkedIn
           </a>
