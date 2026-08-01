@@ -1,7 +1,21 @@
 import { Redis } from '@upstash/redis';
 
-// Auto-populated by the Vercel + Upstash integration — do not hardcode.
-export const redis = Redis.fromEnv();
+// This project's Vercel↔Upstash integration was set up with the custom
+// prefix "myp_", so the injected vars are myp_KV_REST_API_URL /
+// myp_KV_REST_API_TOKEN — not the unprefixed UPSTASH_REDIS_REST_URL /
+// _TOKEN that Redis.fromEnv() looks for. Read them explicitly instead.
+// (myp_KV_REST_API_READ_ONLY_TOKEN exists too but can't HINCRBY — writes
+// need the read-write token above.)
+const url = process.env.myp_KV_REST_API_URL;
+const token = process.env.myp_KV_REST_API_TOKEN;
+
+if (!url || !token) {
+  throw new Error(
+    'Missing myp_KV_REST_API_URL / myp_KV_REST_API_TOKEN — check the Upstash integration is connected to this project in Vercel → Settings → Environment Variables.'
+  );
+}
+
+export const redis = new Redis({ url, token });
 
 export const TOTAL_KEY = 'stats:total';
 
