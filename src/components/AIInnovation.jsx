@@ -62,9 +62,10 @@ export default function AIInnovation() {
           </div>
         </Reveal>
         <Reveal>
-          <p className="gpt-label">Try My Custom GPTs</p>
+          <p className="ai-eyebrow">Generative AI</p>
+          <p className="gpt-label">Custom GPTs, Built and Shipped</p>
           <p className="gpt-intro">
-            Built for real delivery work and free to use — pick one to open it in ChatGPT.
+            Some of the generative AI tools I've designed and use in real delivery work — pick one to try in ChatGPT.
           </p>
           <div className="gpt-grid">
             {gpts.map(g => (
