@@ -38,6 +38,8 @@ export const EVENT_FIELDS = [
   'gpt_document-formatter',
   'gpt_frd-creator',
   'gpt_frd-to-md',
+  'cockpit_pay_click',
+  'cockpit_download', // counted server-side in api/download.js, once per purchase
 ];
 
 const BOT_UA = /bot|crawler|spider|slurp|bingpreview|facebookexternalhit|whatsapp|slackbot|telegrambot|discordbot|linkedinbot|twitterbot|headless|preview/i;

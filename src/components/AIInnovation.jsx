@@ -10,6 +10,9 @@ const gpts = [
   { name: 'FRD Creator (Vibe Coding)', desc: 'Generates FRDs optimized for AI-assisted/vibe coding workflows', url: 'https://chatgpt.com/g/g-6985c6576e4081918191ac8785900616-frd-creation-rnd', slug: 'frd-creator' },
   { name: 'FRD to MD Generator', desc: 'Converts FRD documents into developer-ready markdown', url: 'https://chatgpt.com/g/g-695ea049a8a0819196f396b6c27b712b-hb-frd-to-md-file-generator', slug: 'frd-to-md' },
   { name: "Figma's MD File Generator", desc: 'Converts Figma design files to structured markdown', url: 'https://chatgpt.com/g/g-697fb5bb3948819186c74f007f5e8d19-hb-figma-md-creator-3', private: true },
+  // Paid product: url is a Stripe Payment Link set via VITE_COCKPIT_PAY_URL in Vercel.
+  // Until it is set the card renders as a non-clickable "Paid" card.
+  { name: 'Delivery Cockpit', desc: 'Project status dashboard', url: import.meta.env.VITE_COCKPIT_PAY_URL, paid: true },
 ];
 
 const outcomes = [
@@ -42,6 +45,19 @@ const outcomes = [
   },
 ];
 
+// Opens Stripe checkout in a centred popup window. Stripe's hosted pages refuse
+// to be framed, so a real popup is the option that needs no extra backend. If the
+// browser blocks it, window.open returns null and the link's normal new-tab
+// behaviour takes over.
+function openCheckoutPopup(e, url) {
+  const width = 520;
+  const height = 760;
+  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
+  const popup = window.open(url, 'cockpit-checkout', `popup=yes,width=${width},height=${height},left=${left},top=${top}`);
+  if (popup) e.preventDefault();
+}
+
 export default function AIInnovation() {
   return (
     <section className="section ai-section" id="ai">
@@ -69,13 +85,16 @@ export default function AIInnovation() {
           </p>
           <div className="gpt-grid">
             {gpts.map(g => (
-              g.private ? (
-                <div key={g.name} className="gpt-card is-private">
-                  <h5>{g.name} <span className="gpt-badge">Private</span></h5>
+              g.private || (g.paid && !g.url) ? (
+                <div key={g.name} className={`gpt-card is-private${g.paid ? ' is-paid' : ''}`}>
+                  <h5>{g.name} <span className="gpt-badge">{g.paid ? 'Paid' : 'Private'}</span></h5>
                   <p>{g.desc}</p>
                 </div>
               ) : (
-                <a key={g.name} className="gpt-card" href={g.url} target="_blank" rel="noopener noreferrer" onClick={() => track(`gpt_${g.slug}`)}>
+                <a key={g.name} className="gpt-card" href={g.url} target="_blank" rel="noopener noreferrer" onClick={e => {
+                  track(g.paid ? 'cockpit_pay_click' : `gpt_${g.slug}`);
+                  if (g.paid) openCheckoutPopup(e, g.url);
+                }}>
                   <h5>
                     {g.name}
                     <svg className="gpt-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

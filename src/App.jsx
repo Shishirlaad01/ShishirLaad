@@ -8,6 +8,7 @@ import Experience from './components/Experience.jsx';
 import Projects from './components/Projects.jsx';
 import ContactCTA from './components/ContactCTA.jsx';
 import BackToTop from './components/BackToTop.jsx';
+import KitDownloadListener from './components/KitDownloadListener.jsx';
 import { trackPageViewOnce } from './lib/track.js';
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
       <Projects />
       <ContactCTA />
       <BackToTop />
+      <KitDownloadListener />
     </>
   );
 }

@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.local.example
+
+# The paid Delivery Cockpit kit: served by api/download.js from Redis, never from git.
+Docs/
 
 # Editor directories and files
 .vscode/*
