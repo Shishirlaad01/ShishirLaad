@@ -1,5 +1,7 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { razorpayFetch, PRODUCT_TAG } from './_lib/razorpay.js';
 
 // In production the kit zip lives in Redis (uploaded once with
 // scripts/upload-kit.mjs), not in the repo or /public — anything committed or
@@ -8,7 +10,10 @@ import path from 'node:path';
 const KIT_KEY = 'cockpit:kit';
 const MAX_DOWNLOADS = 5;
 const COUNTER_TTL_SECONDS = 90 * 24 * 60 * 60;
-const SESSION_ID = /^cs_(test|live)_[A-Za-z0-9]{10,200}$/;
+
+const ORDER_ID = /^order_[A-Za-z0-9]{8,40}$/;
+const PAYMENT_ID = /^pay_[A-Za-z0-9]{8,40}$/;
+const SIGNATURE = /^[a-f0-9]{64}$/;
 
 function sendZip(res, zip, remaining) {
   res.setHeader('Content-Type', 'application/zip');
@@ -19,41 +24,74 @@ function sendZip(res, zip, remaining) {
   return res.status(200).send(zip);
 }
 
+// POST { orderId, paymentId, signature } — the three values Razorpay Checkout
+// hands the browser after a successful payment.
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET');
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'method not allowed' });
   }
 
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
-    return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
+  const secret = process.env.RAZORPAY_KEY_SECRET;
+  if (!secret || !process.env.RAZORPAY_KEY_ID) {
+    return res.status(500).json({ error: 'RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not configured' });
   }
 
-  const sessionId = String(req.query.session_id || '');
-  if (!SESSION_ID.test(sessionId)) {
-    return res.status(400).json({ error: 'missing or invalid session_id' });
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch { body = null; }
+  }
+  const { orderId, paymentId, signature } = body || {};
+  if (!ORDER_ID.test(orderId) || !PAYMENT_ID.test(paymentId) || !SIGNATURE.test(signature)) {
+    return res.status(400).json({ error: 'missing or invalid payment details' });
   }
 
-  // Ask Stripe rather than trusting the URL: the session id alone proves nothing.
-  const stripeRes = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
-    headers: { Authorization: `Bearer ${secretKey}` },
-  });
-  if (stripeRes.status === 404) {
-    return res.status(404).json({ error: 'purchase not found' });
+  // Razorpay signs "<order_id>|<payment_id>" with our secret on success; nobody
+  // without the secret can produce a matching signature.
+  const expected = crypto.createHmac('sha256', secret).update(`${orderId}|${paymentId}`).digest('hex');
+  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+    console.warn('[download] signature mismatch for', paymentId);
+    return res.status(400).json({ error: 'payment could not be verified' });
   }
-  if (!stripeRes.ok) {
-    return res.status(502).json({ error: 'could not verify payment with Stripe' });
-  }
-  const session = await stripeRes.json();
 
-  if (session.payment_status !== 'paid') {
-    return res.status(402).json({ error: 'payment not completed' });
+  // Belt and braces: confirm with Razorpay that this payment succeeded for our order.
+  // Checked on the payment, not the order: an order only flips to "paid" once the
+  // payment is captured, and accounts set to authorize-only leave it "attempted".
+  const paymentRes = await razorpayFetch(`/payments/${paymentId}`);
+  if (!paymentRes.ok) {
+    console.warn('[download] payment lookup failed', paymentRes.status);
+    return res.status(502).json({ error: 'could not verify payment with Razorpay' });
   }
-  // If the Stripe account sells anything else, a paid session for another
-  // product must not unlock this one.
-  const expectedLink = process.env.STRIPE_PAYMENT_LINK_ID;
-  if (expectedLink && session.payment_link !== expectedLink) {
+  const payment = await paymentRes.json();
+  if (payment.order_id !== orderId) {
+    console.warn('[download] payment/order mismatch', paymentId, orderId);
+    return res.status(400).json({ error: 'payment could not be verified' });
+  }
+  if (payment.status === 'authorized') {
+    // Money is held but not taken yet, and Razorpay refunds it automatically if
+    // nobody captures it. Capture it now so the buyer isn't refunded after
+    // receiving the kit.
+    const captureRes = await razorpayFetch(`/payments/${paymentId}/capture`, {
+      method: 'POST',
+      body: JSON.stringify({ amount: payment.amount, currency: payment.currency }),
+    });
+    if (!captureRes.ok) {
+      console.warn('[download] capture failed', captureRes.status);
+      return res.status(502).json({ error: 'could not complete the payment. Any hold on your card is released automatically. Please contact me' });
+    }
+  } else if (payment.status !== 'captured') {
+    console.warn('[download] payment not successful, status =', payment.status);
+    return res.status(402).json({ error: `payment not completed (status: ${payment.status})` });
+  }
+
+  const orderRes = await razorpayFetch(`/orders/${orderId}`);
+  if (!orderRes.ok) {
+    console.warn('[download] order lookup failed', orderRes.status);
+    return res.status(502).json({ error: 'could not verify payment with Razorpay' });
+  }
+  const order = await orderRes.json();
+  if (order.notes?.product !== PRODUCT_TAG) {
+    console.warn('[download] order is for another product', orderId);
     return res.status(403).json({ error: 'this purchase does not include the Delivery Cockpit kit' });
   }
 
@@ -75,7 +113,7 @@ export default async function handler(req, res) {
   // env vars are missing, which the local path above must not require.
   const { redis, TOTAL_KEY, dailyKey } = await import('./_lib/redis.js');
 
-  const counterKey = `cockpit:dl:${sessionId}`;
+  const counterKey = `cockpit:dl:${paymentId}`;
   const count = await redis.incr(counterKey);
   if (count > MAX_DOWNLOADS) {
     await redis.decr(counterKey);
