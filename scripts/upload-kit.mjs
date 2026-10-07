@@ -1,5 +1,6 @@
-// One-off: stores the Delivery Cockpit kit zip in Redis so api/download.js can
-// serve it to paying customers. Re-run whenever the kit changes.
+// Stores the Delivery Cockpit kit zip in Redis so api/download.js can serve it to
+// paying customers. Run it again to update the kit: the version being replaced is
+// kept under a backup key, and scripts/download-kit.mjs can fetch either one.
 //
 //   node --env-file=.env scripts/upload-kit.mjs ["path/to/kit.zip"]
 //
@@ -10,6 +11,7 @@ import fs from 'node:fs';
 import { Redis } from '@upstash/redis';
 
 const KIT_KEY = 'cockpit:kit'; // must match api/download.js
+const BACKUP_KEY = 'cockpit:kit:previous'; // must match scripts/download-kit.mjs
 // Upstash's REST request limit is 1 MB and base64 adds ~33%.
 const MAX_BYTES = 700 * 1024;
 
@@ -36,5 +38,18 @@ if (zip.length > MAX_BYTES) {
   process.exit(1);
 }
 
-await new Redis({ url, token }).set(KIT_KEY, zip.toString('base64'));
+const redis = new Redis({ url, token });
+const encoded = zip.toString('base64');
+const current = await redis.get(KIT_KEY);
+
+if (current === encoded) {
+  console.log('Redis already holds this exact kit (%d KB). Nothing to do.', Math.round(zip.length / 1024));
+  process.exit(0);
+}
+if (typeof current === 'string' && current) {
+  await redis.set(BACKUP_KEY, current);
+  console.log('Saved the version being replaced as "%s".', BACKUP_KEY);
+}
+
+await redis.set(KIT_KEY, encoded);
 console.log('Uploaded %s (%d KB) to Redis key "%s".', file, Math.round(zip.length / 1024), KIT_KEY);
