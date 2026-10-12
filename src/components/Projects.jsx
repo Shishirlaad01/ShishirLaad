@@ -1,32 +1,81 @@
 import Reveal from './Reveal.jsx';
 
+// Client names are intentionally left out: each card is identified by industry,
+// country and domain instead. Only facts from the resume (or supplied directly
+// by Shishir) belong here — leave `meta` empty rather than guess a stack or size.
 const projects = [
-  { name: 'Thread Research', tag: 'USA', desc: 'HIPAA & GDPR compliant healthcare platform.', meta: [['Team', 'Java, Native iOS/Android'], ['Size', '74 members']] },
-  { name: 'Saxon Insurance', tag: 'UK', desc: 'Automated underwriting & risk analytics — reduced manual processing time by 40%, improved policy turnaround by 25%.', meta: [['Stack', 'PHP (Laravel), React.js, AWS']] },
-  { name: 'Acume', tag: 'New Zealand', desc: 'Fin-tech AR/AP automation platform.', meta: [['Team', 'PHP, Vue.js'], ['Size', '8 members']] },
-  { name: 'Tank Terminal Intelligence', tag: 'Logistics', desc: 'Vessel waiting-time analytics using AIS data.', meta: [['Stack', 'PostgreSQL/PostGIS, PHP, Python']] },
-  { name: 'Upstream CFD Platform', tag: 'Engineering', desc: 'Cloud-based CFD simulation & data analysis platform.', meta: [['Stack', 'React.js, Node.js, Python, AWS']] },
-  { name: 'Haidlmair Engineering', tag: 'Enterprise Security', desc: 'Secure engineering file management for a global mould & tooling firm.', meta: [['Stack', 'Python, Docker, Azure Cloud']] },
+  {
+    industry: 'Insurance',
+    country: 'UK',
+    domain: 'Underwriting & portfolio risk analytics',
+    desc: 'Automated underwriting and risk analytics for high-value asset insurance — manual processing time down 40%, policy turnaround improved by 25%.',
+    meta: [['Stack', 'PHP (Laravel), React.js, AWS']],
+  },
+  {
+    industry: 'Healthcare',
+    country: 'USA',
+    domain: 'HIPAA & GDPR-compliant mobile platform',
+    desc: 'Healthcare platform delivered as native iOS and Android apps under HIPAA and GDPR compliance requirements.',
+    meta: [['Stack', 'Java, Native iOS/Android'], ['Scale', '74-member team']],
+  },
+  {
+    industry: 'FinTech',
+    country: 'New Zealand',
+    domain: 'AR/AP automation',
+    desc: 'Accounts receivable and payable automation platform.',
+    meta: [['Stack', 'PHP, Vue.js'], ['Scale', '8-member team']],
+  },
+  {
+    industry: 'E-Governance',
+    country: 'India',
+    domain: 'Government IT programmes',
+    desc: 'Led project teams of business analysts, developers, and QA across government e-governance initiatives, owning requirements, proposals, estimation, and releases.',
+    meta: [['Scope', '3+ government departments']],
+  },
+  {
+    industry: 'Engineering SaaS',
+    country: 'Germany',
+    domain: 'Cloud CFD simulation & data analysis',
+    desc: 'Cloud-based CFD simulation and data analysis platform for engineering workloads.',
+    meta: [['Stack', 'React.js, Node.js, Python (Flask), AWS S3']],
+  },
+  {
+    industry: 'Maritime Logistics',
+    country: 'Netherlands',
+    domain: 'Vessel waiting-time analytics',
+    desc: 'Analytics platform that turns AIS vessel data into waiting-time insight for tank terminal operations.',
+    meta: [['Stack', 'PostgreSQL/PostGIS, PHP 8, Python']],
+  },
+  {
+    industry: 'Real Estate',
+    country: 'Dubai, UAE',
+    domain: 'Multi-sided property marketplace',
+    desc: 'Real estate platform connecting vendors, buyers, and sellers.',
+    meta: [],
+  },
 ];
 
 export default function Projects() {
   return (
     <section className="section" id="projects">
       <div className="container">
-        <Reveal as="h2" className="section-title-lg">Selected Projects</Reveal>
+        <Reveal as="h2" className="section-title-lg">Projects Delivered</Reveal>
         <Reveal as="p" className="projects-lead">
-          A snapshot of enterprise platforms delivered across domains, demonstrating scale, compliance handling, and architectural impact.
+          A snapshot of enterprise platforms delivered across industries and countries, demonstrating scale, compliance handling, and architectural impact.
         </Reveal>
         <div className="bento">
           {projects.map(p => (
-            <Reveal key={p.name} className="p-card">
-              <div className="p-top"><h3>{p.name}</h3><span className="p-tag">{p.tag}</span></div>
+            <Reveal key={`${p.industry}-${p.country}`} className="p-card">
+              <div className="p-top"><h3>{p.industry}</h3><span className="p-tag">{p.country}</span></div>
+              <p className="p-domain">{p.domain}</p>
               <p>{p.desc}</p>
-              <div className="p-meta">
-                {p.meta.map(([label, value]) => (
-                  <span key={label}><strong>{label}:</strong> {value}</span>
-                ))}
-              </div>
+              {p.meta.length > 0 && (
+                <div className="p-meta">
+                  {p.meta.map(([label, value]) => (
+                    <span key={label}><strong>{label}:</strong> {value}</span>
+                  ))}
+                </div>
+              )}
             </Reveal>
           ))}
         </div>
