@@ -14,7 +14,7 @@ const gpts = [
   { name: 'FRD to MD Generator', desc: 'Converts FRD documents into developer-ready markdown', url: 'https://chatgpt.com/g/g-695ea049a8a0819196f396b6c27b712b-hb-frd-to-md-file-generator', slug: 'frd-to-md' },
   { name: "Figma's MD File Generator", desc: 'Converts Figma design files to structured markdown', url: 'https://chatgpt.com/g/g-697fb5bb3948819186c74f007f5e8d19-hb-figma-md-creator-3', private: true },
   // Paid product: opens the Razorpay checkout modal (see src/lib/kit.js).
-  { name: 'Delivery Cockpit', desc: 'Project status dashboard', paid: true },
+  { name: 'Delivery Cockpit', desc: 'Project status dashboard', paid: true, demoUrl: 'https://www.youtube.com/watch?v=kQxPiCexGJw&t' },
 ];
 
 const outcomes = [
@@ -82,18 +82,25 @@ export default function AIInnovation() {
                   <p>{g.desc}</p>
                 </div>
               ) : g.paid ? (
-                <button key={g.name} type="button" className="gpt-card gpt-card-btn" onClick={() => {
-                  track('cockpit_pay_click');
-                  startCheckout(setKitStatus);
-                }}>
-                  <span className="gpt-title">
-                    {g.name}
-                    <svg className="gpt-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M7 17 17 7" /><path d="M8 7h9v9" />
-                    </svg>
-                  </span>
-                  <span className="gpt-desc">{g.desc}</span>
-                </button>
+                <div key={g.name} className="gpt-card gpt-card-paid">
+                  <button type="button" className="gpt-card-btn" onClick={() => {
+                    track('cockpit_pay_click');
+                    startCheckout(setKitStatus);
+                  }}>
+                    <span className="gpt-title">
+                      {g.name}
+                      <svg className="gpt-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M7 17 17 7" /><path d="M8 7h9v9" />
+                      </svg>
+                    </span>
+                    <span className="gpt-desc">{g.desc}</span>
+                  </button>
+                  {/* a link can't sit inside the checkout <button>, so it's a sibling */}
+                  <a className="gpt-demo" href={g.demoUrl} target="_blank" rel="noopener noreferrer" onClick={() => track('cockpit_demo_click')}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                    Watch it in action
+                  </a>
+                </div>
               ) : (
                 <a key={g.name} className="gpt-card" href={g.url} target="_blank" rel="noopener noreferrer" onClick={() => track(`gpt_${g.slug}`)}>
                   <h5>

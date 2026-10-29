@@ -378,9 +378,18 @@ a.connect-row:hover { color: var(--amber-light); }
 .gpt-card p,
 .gpt-card .gpt-desc { font-size: 0.78rem; color: rgba(255,255,255,0.6); }
 
-/* the paid card is a <button> (opens the checkout modal), not a link */
-.gpt-card-btn { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+/* the paid card holds a <button> (opens the checkout modal) plus a demo link */
+.gpt-card-btn { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .gpt-card-btn .gpt-desc { display: block; }
+.gpt-demo {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 12px;
+  font-size: 0.74rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--amber-light);
+  transition: opacity 0.2s ease;
+}
+.gpt-demo svg { width: 11px; height: 11px; }
+.gpt-demo:hover { opacity: 0.8; text-decoration: underline; text-underline-offset: 3px; }
 
 /* invitation to click: arrow leans in on hover */
 .gpt-arrow {
