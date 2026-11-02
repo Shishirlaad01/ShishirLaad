@@ -7,9 +7,9 @@ const projects = [
   {
     industry: 'Insurance',
     country: 'UK',
-    domain: 'Underwriting & portfolio risk analytics',
-    desc: 'Automated underwriting and risk analytics for high-value asset insurance — manual processing time down 40%, policy turnaround improved by 25%.',
-    meta: [['Stack', 'PHP (Laravel), React.js, AWS']],
+    domain: 'End-to-end project delivery as a Project Manager',
+    desc: 'Insurance domain project. Led end-to-end development, from requirement understanding through UAT and go-live. Manual processing time down 40%, policy turnaround improved by 25%.',
+    meta: [['Stack', 'PHP (Laravel), React.js, AWS'], ['Scale', '5-member team']],
   },
   {
     industry: 'Healthcare',
