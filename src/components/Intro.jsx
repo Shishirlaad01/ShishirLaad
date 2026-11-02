@@ -1,10 +1,11 @@
 import Reveal from './Reveal.jsx';
 
 const credentials = [
-  { title: 'Certified Project Management', sub: 'IIM Kashipur' },
-  { title: 'Certified Scrum Master (CSM)', sub: 'Scrum Alliance' },
+  { title: 'Executive Certification in Project Management', sub: 'IIM Kashipur, 2023' },
+  { title: 'Certified Scrum Master (CSM)', sub: 'Scrum Alliance, 2020' },
+  { title: 'Certified Quality Analyst', sub: 'Seed InfoTech, 2010' },
+  { title: 'ABBYY Vantage Advanced Designer', sub: '2023' },
   { title: 'Bachelor of Engineering', sub: 'R.G.P.V. University, 2009' },
-  { title: 'Certified Quality Analyst', sub: 'Seed InfoTech' },
 ];
 
 const expertiseGroups = [
