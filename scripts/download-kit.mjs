@@ -1,8 +1,9 @@
 // Saves the Delivery Cockpit kit zip from Redis back to disk — the recovery path
 // if the local copy is lost.
 //
-//   node --env-file=.env scripts/download-kit.mjs ["output.zip"] [--previous] [--force]
+//   node --env-file=.env scripts/download-kit.mjs ["output.zip"] [--job-email] [--previous] [--force]
 //
+//   --job-email fetch the Claude skill for Job emails, not the Delivery Cockpit
 //   --previous  fetch the version that the last upload replaced, not the live one
 //   --force     overwrite the output file if it already exists
 //
@@ -12,13 +13,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Redis } from '@upstash/redis';
 
-const KIT_KEY = 'cockpit:kit'; // must match api/download.js
-const BACKUP_KEY = 'cockpit:kit:previous'; // must match scripts/upload-kit.mjs
-
 const args = process.argv.slice(2);
+const jobEmail = args.includes('--job-email');
+const prefix = jobEmail ? 'job-email' : 'cockpit'; // must match api/_lib/razorpay.js
+const KIT_KEY = `${prefix}:kit`;
+const BACKUP_KEY = `${prefix}:kit:previous`; // must match scripts/upload-kit.mjs
 const wantPrevious = args.includes('--previous');
 const force = args.includes('--force');
-const out = args.find((a) => !a.startsWith('--')) || 'Docs/Dashboard cockpit.zip';
+const out = args.find((a) => !a.startsWith('--')) || (jobEmail ? 'Docs/my-job-email.zip' : 'Docs/Dashboard cockpit.zip');
 
 const url = process.env.myp_KV_REST_API_URL;
 const token = process.env.myp_KV_REST_API_TOKEN;

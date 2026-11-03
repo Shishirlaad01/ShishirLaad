@@ -2,7 +2,9 @@
 // paying customers. Run it again to update the kit: the version being replaced is
 // kept under a backup key, and scripts/download-kit.mjs can fetch either one.
 //
-//   node --env-file=.env scripts/upload-kit.mjs ["path/to/kit.zip"]
+//   node --env-file=.env scripts/upload-kit.mjs ["path/to/kit.zip"] [--job-email]
+//
+//   --job-email  upload the Claude skill for Job emails instead of the Delivery Cockpit
 //
 // Needs myp_KV_REST_API_URL and myp_KV_REST_API_TOKEN in .env (copy them from
 // Vercel → Settings → Environment Variables). Writes to whichever Redis
@@ -10,12 +12,15 @@
 import fs from 'node:fs';
 import { Redis } from '@upstash/redis';
 
-const KIT_KEY = 'cockpit:kit'; // must match api/download.js
-const BACKUP_KEY = 'cockpit:kit:previous'; // must match scripts/download-kit.mjs
+const args = process.argv.slice(2);
+const jobEmail = args.includes('--job-email');
+const prefix = jobEmail ? 'job-email' : 'cockpit'; // must match api/_lib/razorpay.js
+const KIT_KEY = `${prefix}:kit`;
+const BACKUP_KEY = `${prefix}:kit:previous`; // must match scripts/download-kit.mjs
 // Upstash's REST request limit is 1 MB and base64 adds ~33%.
 const MAX_BYTES = 700 * 1024;
 
-const file = process.argv[2] || 'Docs/Dashboard cockpit.zip';
+const file = args.find((a) => !a.startsWith('--')) || (jobEmail ? 'Docs/my-job-email.zip' : 'Docs/Dashboard cockpit.zip');
 const url = process.env.myp_KV_REST_API_URL;
 const token = process.env.myp_KV_REST_API_TOKEN;
 

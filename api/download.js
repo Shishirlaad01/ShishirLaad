@@ -1,13 +1,12 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { razorpayFetch, PRODUCT_TAG } from './_lib/razorpay.js';
+import { razorpayFetch, getProduct, localKitPath } from './_lib/razorpay.js';
 
-// In production the kit zip lives in Redis (uploaded once with
+// In production each kit zip lives in Redis (uploaded once with
 // scripts/upload-kit.mjs), not in the repo or /public — anything committed or
 // served statically is free for whoever finds the URL, which would defeat the
 // paywall.
-const KIT_KEY = 'cockpit:kit';
 const MAX_DOWNLOADS = 5;
 const COUNTER_TTL_SECONDS = 90 * 24 * 60 * 60;
 
@@ -15,9 +14,9 @@ const ORDER_ID = /^order_[A-Za-z0-9]{8,40}$/;
 const PAYMENT_ID = /^pay_[A-Za-z0-9]{8,40}$/;
 const SIGNATURE = /^[a-f0-9]{64}$/;
 
-function sendZip(res, zip, remaining) {
+function sendZip(res, zip, fileName, remaining) {
   res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', 'attachment; filename="Delivery-Cockpit-Kit.zip"');
+  res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
   res.setHeader('Content-Length', zip.length);
   res.setHeader('Cache-Control', 'no-store');
   if (remaining != null) res.setHeader('X-Downloads-Remaining', String(remaining));
@@ -90,37 +89,40 @@ export default async function handler(req, res) {
     return res.status(502).json({ error: 'could not verify payment with Razorpay' });
   }
   const order = await orderRes.json();
-  if (order.notes?.product !== PRODUCT_TAG) {
+  // Read from the order, never the request: this is what stops a buyer of one kit
+  // from downloading another.
+  const product = getProduct(order.notes?.product);
+  if (!product) {
     console.warn('[download] order is for another product', orderId);
-    return res.status(403).json({ error: 'this purchase does not include the Delivery Cockpit kit' });
+    return res.status(403).json({ error: 'this purchase does not include a kit' });
   }
 
   // Local development only: serve the zip straight from disk (e.g.
   // KIT_LOCAL_PATH="Docs/Dashboard cockpit.zip") so no Redis is needed. Ignored
   // in production, and skips the download limit and stats.
-  const localKitPath = process.env.NODE_ENV !== 'production' ? process.env.KIT_LOCAL_PATH : '';
-  if (localKitPath) {
+  const localPath = localKitPath(product);
+  if (localPath) {
     let zip;
     try {
-      zip = fs.readFileSync(path.resolve(localKitPath));
+      zip = fs.readFileSync(path.resolve(localPath));
     } catch {
-      return res.status(503).json({ error: `KIT_LOCAL_PATH file not found: ${localKitPath}` });
+      return res.status(503).json({ error: `${product.localPathEnv} file not found: ${localPath}` });
     }
-    return sendZip(res, zip, null);
+    return sendZip(res, zip, product.fileName, null);
   }
 
   // Imported here, not at the top: redis.js throws at load when the Upstash
   // env vars are missing, which the local path above must not require.
   const { redis, TOTAL_KEY, dailyKey } = await import('./_lib/redis.js');
 
-  const counterKey = `cockpit:dl:${paymentId}`;
+  const counterKey = `${product.prefix}:dl:${paymentId}`;
   const count = await redis.incr(counterKey);
   if (count > MAX_DOWNLOADS) {
     await redis.decr(counterKey);
     return res.status(429).json({ error: `download limit of ${MAX_DOWNLOADS} reached — contact me for help` });
   }
 
-  const kit = await redis.get(KIT_KEY);
+  const kit = await redis.get(`${product.prefix}:kit`);
   if (typeof kit !== 'string' || !kit) {
     await redis.decr(counterKey);
     return res.status(503).json({ error: 'kit is not available yet — contact me and I will send it manually' });
@@ -131,10 +133,10 @@ export default async function handler(req, res) {
   // Count each purchase once (its first download), not every re-download.
   if (count === 1) {
     await Promise.all([
-      redis.hincrby(TOTAL_KEY, 'cockpit_download', 1),
-      redis.hincrby(dailyKey(), 'cockpit_download', 1),
+      redis.hincrby(TOTAL_KEY, product.downloadEvent, 1),
+      redis.hincrby(dailyKey(), product.downloadEvent, 1),
     ]);
   }
 
-  return sendZip(res, Buffer.from(kit, 'base64'), MAX_DOWNLOADS - count);
+  return sendZip(res, Buffer.from(kit, 'base64'), product.fileName, MAX_DOWNLOADS - count);
 }

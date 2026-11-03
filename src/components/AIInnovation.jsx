@@ -12,9 +12,10 @@ const gpts = [
   { name: 'Document Formatter', desc: 'Standardizes and formats project documentation', url: 'https://chatgpt.com/g/g-69b294d0aea8819189dd6218d41faf28-document-formatter', slug: 'document-formatter' },
   { name: 'FRD Creator (Vibe Coding)', desc: 'Generates FRDs optimized for AI-assisted/vibe coding workflows', url: 'https://chatgpt.com/g/g-6985c6576e4081918191ac8785900616-frd-creation-rnd', slug: 'frd-creator' },
   { name: 'FRD to MD Generator', desc: 'Converts FRD documents into developer-ready markdown', url: 'https://chatgpt.com/g/g-695ea049a8a0819196f396b6c27b712b-hb-frd-to-md-file-generator', slug: 'frd-to-md' },
-  { name: "Figma's MD File Generator", desc: 'Converts Figma design files to structured markdown', url: 'https://chatgpt.com/g/g-697fb5bb3948819186c74f007f5e8d19-hb-figma-md-creator-3', private: true },
-  // Paid product: opens the Razorpay checkout modal (see src/lib/kit.js).
-  { name: 'Delivery Cockpit', desc: 'Project status dashboard', paid: true, demoUrl: 'https://www.youtube.com/watch?v=kQxPiCexGJw&t' },
+  // Paid products: open the Razorpay checkout modal (see src/lib/kit.js). The events
+  // must be listed in api/_lib/redis.js. An empty demoUrl leaves "Watch it in action" unclickable.
+  { name: 'Claude skill for Job emails', desc: 'Send Tailored email fit as per Job description', paid: true, product: 'job-email-skill', payEvent: 'job_email_pay_click', demoEvent: 'job_email_demo_click', demoUrl: '' },
+  { name: 'Delivery Cockpit', desc: 'Project status dashboard', paid: true, product: 'delivery-cockpit', payEvent: 'cockpit_pay_click', demoEvent: 'cockpit_demo_click', demoUrl: 'https://www.youtube.com/watch?v=kQxPiCexGJw&t' },
 ];
 
 const outcomes = [
@@ -84,8 +85,8 @@ export default function AIInnovation() {
               ) : g.paid ? (
                 <div key={g.name} className="gpt-card gpt-card-paid">
                   <button type="button" className="gpt-card-btn" onClick={() => {
-                    track('cockpit_pay_click');
-                    startCheckout(setKitStatus);
+                    track(g.payEvent);
+                    startCheckout(setKitStatus, g.product);
                   }}>
                     <span className="gpt-title">
                       {g.name}
@@ -96,10 +97,17 @@ export default function AIInnovation() {
                     <span className="gpt-desc">{g.desc}</span>
                   </button>
                   {/* a link can't sit inside the checkout <button>, so it's a sibling */}
-                  <a className="gpt-demo" href={g.demoUrl} target="_blank" rel="noopener noreferrer" onClick={() => track('cockpit_demo_click')}>
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-                    Watch it in action
-                  </a>
+                  {g.demoUrl ? (
+                    <a className="gpt-demo" href={g.demoUrl} target="_blank" rel="noopener noreferrer" onClick={() => track(g.demoEvent)}>
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                      Watch it in action
+                    </a>
+                  ) : (
+                    <span className="gpt-demo is-pending">
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                      Watch it in action
+                    </span>
+                  )}
                 </div>
               ) : (
                 <a key={g.name} className="gpt-card" href={g.url} target="_blank" rel="noopener noreferrer" onClick={() => track(`gpt_${g.slug}`)}>

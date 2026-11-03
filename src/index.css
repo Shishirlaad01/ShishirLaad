@@ -390,6 +390,8 @@ a.connect-row:hover { color: var(--amber-light); }
 }
 .gpt-demo svg { width: 11px; height: 11px; }
 .gpt-demo:hover { opacity: 0.8; text-decoration: underline; text-underline-offset: 3px; }
+/* no video yet: same look as the link, but nothing to click */
+.gpt-demo.is-pending:hover { opacity: 1; text-decoration: none; }
 
 /* invitation to click: arrow leans in on hover */
 .gpt-arrow {
