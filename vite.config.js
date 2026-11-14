@@ -4,10 +4,11 @@ import { parseEnv } from 'node:util'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Dev-only stand-in for Vercel's serverless functions, for the two routes the
-// Delivery Cockpit purchase needs. The other api/* handlers need Upstash and the
+// Dev-only stand-in for Vercel's serverless functions, for the routes that work
+// without Upstash: the Delivery Cockpit purchase and the chat assistant (which
+// skips rate limiting locally). The other api/* handlers need Upstash and the
 // client already tolerates them being absent locally.
-const DEV_API_ROUTES = new Set(['/api/create-order', '/api/download'])
+const DEV_API_ROUTES = new Set(['/api/create-order', '/api/download', '/api/chat'])
 
 function readBody(req) {
   return new Promise((resolve, reject) => {

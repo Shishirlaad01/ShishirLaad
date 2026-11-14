@@ -44,6 +44,8 @@ export const EVENT_FIELDS = [
   'job_email_pay_click',
   'job_email_demo_click',
   'job_email_download', // counted server-side in api/download.js, once per purchase
+  'chat_open', // first time a visitor opens the chat widget in a page load
+  'chat_message', // counted server-side in api/chat.js, once per accepted message
 ];
 
 const BOT_UA = /bot|crawler|spider|slurp|bingpreview|facebookexternalhit|whatsapp|slackbot|telegrambot|discordbot|linkedinbot|twitterbot|headless|preview/i;
