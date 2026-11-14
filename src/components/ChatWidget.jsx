@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { track } from '../lib/track.js';
 
 const GREETING = "Hi, I'm Shishir's AI assistant. Ask me about his experience, projects, or how he can help with your AI initiative.";
@@ -13,8 +13,33 @@ const STARTERS = [
 // Shown when /api/chat can't answer (not configured, down, or offline).
 const OFFLINE_REPLY = "I can't answer right now. You can reach Shishir directly at shishirlaad@gmail.com or on LinkedIn.";
 
+const AUTO_OPEN_DELAY_MS = 800;
+const DISMISSED_KEY = 'chat_dismissed';
+
 // Matches the server's cap (api/chat.js MAX_MESSAGES) with room to spare.
 const MAX_HISTORY = 20;
+
+// One per page load; the server files every exchange under it.
+function newConversationId() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  // Older browsers without randomUUID (it needs a secure context).
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+// How the visitor arrived, recorded with the conversation. Read at send time
+// in the browser only (never during prerender).
+function visitContext() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    referrer: document.referrer,
+    utmSource: params.get('utm_source') || '',
+    page: window.location.pathname,
+  };
+}
 
 // `local` messages (the greeting, error notices) were never part of the model's
 // conversation, so they aren't sent back to it.
@@ -22,6 +47,36 @@ function toApiMessages(history) {
   const sent = history.filter(m => !m.local).slice(-MAX_HISTORY);
   while (sent.length && sent[0].role !== 'user') sent.shift();
   return sent.map(m => ({ role: m.role, content: m.text }));
+}
+
+// Turns http(s) URLs in a reply into links (the bot shares GPT and video links
+// as plain URLs). Trailing punctuation stays outside the link. React escapes
+// the text, and only http/https URLs ever become hrefs.
+const URL_PATTERN = /https?:\/\/[^\s<>"]+/g;
+function linkify(text) {
+  const parts = [];
+  let last = 0;
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const url = match[0].replace(/[.,;:!?)\]]+$/, '');
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    parts.push(
+      <a key={match.index} href={url} target="_blank" rel="noopener noreferrer">{url}</a>,
+    );
+    last = match.index + url.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
+// The bot's replies use exactly two bits of formatting: **bold** titles and
+// "- " pointers (see api/_lib/profile.js). Everything else stays plain text.
+// An unclosed ** mid-stream just shows as typed until the closing pair arrives.
+function formatReply(text) {
+  return text.split(/\*\*([^*\n]+)\*\*/).map((segment, i) => (
+    i % 2 === 1
+      ? <strong key={i} className="chat-title">{segment}</strong>
+      : <Fragment key={i}>{linkify(segment.replace(/^- /gm, '• '))}</Fragment>
+  ));
 }
 
 // Reads the endpoint's server-sent events, calling onText with each chunk.
@@ -47,6 +102,7 @@ async function readReply(res, onText) {
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [auto, setAuto] = useState(false); // current open was automatic, not a click
   const [messages, setMessages] = useState([{ role: 'assistant', text: GREETING, local: true }]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -54,20 +110,53 @@ export default function ChatWidget() {
   const listRef = useRef(null);
   const openedOnce = useRef(false);
   const request = useRef(null);
+  const conversationId = useRef(null);
+
+  // Greet the visitor by opening the panel shortly after the page loads. Done in
+  // an effect (not initial state) so the prerendered markup stays closed.
+  useEffect(() => {
+    // On phones the panel covers nearly the whole screen; leave the page visible.
+    if (window.matchMedia('(max-width: 560px)').matches) return;
+    try {
+      // Closed once this session: don't push it at them again on reload.
+      if (sessionStorage.getItem(DISMISSED_KEY)) return;
+    } catch {
+      // sessionStorage unavailable — open anyway
+    }
+    const timer = setTimeout(() => {
+      setAuto(true);
+      setOpen(true);
+    }, AUTO_OPEN_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  function close() {
+    setOpen(false);
+    setAuto(false);
+    try {
+      sessionStorage.setItem(DISMISSED_KEY, '1');
+    } catch {
+      // not remembered; harmless
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
-    if (!openedOnce.current) {
-      openedOnce.current = true;
-      track('chat_open');
+    // An automatic open isn't the visitor's doing: don't count it as engagement,
+    // and don't pull keyboard focus away from the page they just arrived on.
+    if (!auto) {
+      if (!openedOnce.current) {
+        openedOnce.current = true;
+        track('chat_open');
+      }
+      inputRef.current?.focus();
     }
-    inputRef.current?.focus();
     function onKey(e) {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') close();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  }, [open, auto]);
 
   // Keep the newest message in view.
   useEffect(() => {
@@ -88,11 +177,16 @@ export default function ChatWidget() {
     const controller = new AbortController();
     request.current = controller;
     let reply = '';
+    conversationId.current ??= newConversationId();
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: toApiMessages(history) }),
+        body: JSON.stringify({
+          messages: toApiMessages(history),
+          conversationId: conversationId.current,
+          context: visitContext(),
+        }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {
@@ -138,7 +232,7 @@ export default function ChatWidget() {
             <strong>Ask Shishir's AI</strong>
             <span>Experience, projects, AI solutions</span>
           </div>
-          <button type="button" className="chat-close" aria-label="Close chat" onClick={() => setOpen(false)}>
+          <button type="button" className="chat-close" aria-label="Close chat" onClick={close}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18" />
             </svg>
@@ -147,7 +241,7 @@ export default function ChatWidget() {
 
         <div className="chat-messages" ref={listRef} aria-live="polite">
           {messages.map((m, i) => (
-            <p key={i} className={`chat-msg is-${m.role}`}>{m.text}</p>
+            <p key={i} className={`chat-msg is-${m.role}`}>{m.role === 'assistant' ? formatReply(m.text) : m.text}</p>
           ))}
           {typing && (
             <p className="chat-msg is-assistant chat-typing" aria-label="Assistant is typing">
@@ -186,6 +280,7 @@ export default function ChatWidget() {
             </svg>
           </button>
         </form>
+        <p className="chat-notice">Chats are saved so Shishir can follow up.</p>
       </div>
 
       <button
@@ -194,7 +289,7 @@ export default function ChatWidget() {
         aria-label={open ? 'Close chat' : "Chat with Shishir's AI assistant"}
         aria-expanded={open}
         aria-controls="chat-panel"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => (open ? close() : setOpen(true))}
       >
         {open ? (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">

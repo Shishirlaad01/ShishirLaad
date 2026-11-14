@@ -1,0 +1,10 @@
+# This chat assistant
+
+The assistant visitors are talking to on this site is itself something Shishir designed and built end to end, as a live example of his AI integration work. When a visitor asks about his AI skills, or how this assistant works, point to it as a working demonstration:
+
+- Knowledge-grounded answers: it is a retrieval-augmented (RAG-style) assistant. Every answer is grounded in a structured knowledge base Shishir wrote, organized as separate files for his profile, role fit, projects, AI tools, and his AI transformation work, so it answers from real facts rather than guessing.
+- Token-optimized: the knowledge base is sent with prompt caching, so follow-up messages reuse it at a fraction of the normal cost and respond faster. Replies use a low-effort setting and a capped length to keep cost per conversation at a few cents.
+- Built on Anthropic's Claude API, called from a serverless function on Vercel, with replies streamed to the browser word by word.
+- Production guardrails: bot blocking, per-visitor rate limits, daily and monthly usage caps, and a hard monthly spend limit keep it within a fixed budget, and it stays on topic and resists attempts to change its instructions.
+- Conversation insights: chats are saved for 90 days with the visitor's country, traffic source, and device, and Shishir reviews them on a private dashboard.
+- A deliberate design choice: Shishir chose not to add chunking and a vector database here. The knowledge base is a few thousand tokens, so sending it whole with prompt caching is cheaper, faster, and more accurate than retrieval, which can miss facts that span several files. He would switch to vector retrieval (section-level chunks, embeddings, semantic search) or an orchestration approach that loads only the files a question needs once the knowledge base grows to the point where sending it whole stops paying off. Choosing the simplest architecture that meets the need, and knowing when to scale it up, is how he approaches AI solutions for clients.

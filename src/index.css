@@ -259,6 +259,14 @@ ul { list-style: none; }
 .chat-form button svg { width: 18px; height: 18px; }
 .chat-form button:hover:not(:disabled) { background: var(--amber-light); }
 .chat-form button:disabled { opacity: 0.4; cursor: default; }
+.chat-form { padding-bottom: 6px; }
+.chat-msg .chat-title { font-family: var(--font-display); font-weight: 700; }
+.chat-msg a { color: var(--amber); text-decoration: underline; overflow-wrap: anywhere; }
+.chat-msg a:hover { color: var(--rose); }
+.chat-notice {
+  margin: 0; padding: 0 12px 8px; background: #fff;
+  font-size: 0.7rem; color: var(--text-muted, #6b6b6b); text-align: center;
+}
 
 @media (max-width: 560px) {
   .chat-launcher { bottom: 18px; right: 18px; }

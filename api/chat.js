@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
-import { SYSTEM_PROMPT } from './_lib/profile.js';
+import { getSystemPrompt } from './_lib/profile.js';
+import { saveTurn, validConversationId } from './_lib/conversations.js';
 
-// POST { messages: [{ role: 'user'|'assistant', content: string }, ...] }
+// POST { messages: [{ role: 'user'|'assistant', content: string }, ...],
+//        conversationId?: uuid, context?: { referrer, utmSource, page } }
+// With a conversationId, each exchange is saved (see _lib/conversations.js).
 // Streams the assistant's reply as server-sent events:
 //   data: {"text":"..."}   one per chunk
 //   data: {"done":true}    reply finished
@@ -24,7 +27,22 @@ const MAX_ASSISTANT_CHARS = 6000;
 // This endpoint spends money on every call and is open to the internet.
 const LIMIT_PER_MINUTE = 6; // per visitor
 const LIMIT_PER_DAY = 40; // per visitor
-const LIMIT_GLOBAL_PER_DAY = Number(process.env.CHAT_DAILY_LIMIT) || 500; // all visitors
+
+// Monthly cap across all visitors, sized so a month of chat costs about $5 on
+// each model (estimated per message: Opus ~$0.01, Sonnet ~$0.005, Haiku
+// ~$0.00025). Set CHAT_MONTHLY_LIMIT to override. The Anthropic Console spend
+// limit is the hard guarantee; this keeps the bot from hitting it mid-month.
+const DEFAULT_MONTHLY_LIMITS = [
+  [/^claude-haiku/, 20000],
+  [/^claude-sonnet/, 1000],
+];
+const LIMIT_GLOBAL_PER_MONTH =
+  Number(process.env.CHAT_MONTHLY_LIMIT) ||
+  DEFAULT_MONTHLY_LIMITS.find(([pattern]) => pattern.test(MODEL))?.[1] ||
+  500;
+// No single day may use more than a tenth of the month's allowance.
+const LIMIT_GLOBAL_PER_DAY =
+  Number(process.env.CHAT_DAILY_LIMIT) || Math.ceil(LIMIT_GLOBAL_PER_MONTH / 10);
 
 const BOT_UA = /bot|crawler|spider|slurp|bingpreview|facebookexternalhit|headless|preview/i;
 
@@ -53,14 +71,18 @@ function clientIp(req) {
   return first || req.socket?.remoteAddress || 'unknown';
 }
 
+// Imported lazily because redis.js throws at load when the Upstash env vars
+// are missing, which local development must not require. Resolves to null then.
+let redisLibPromise;
+function loadRedis() {
+  redisLibPromise ??= import('./_lib/redis.js').catch(() => null);
+  return redisLibPromise;
+}
+
 // Returns null when the request may proceed, or a message for the visitor.
 async function checkRateLimit(req) {
-  let redisLib;
-  try {
-    // Imported here because redis.js throws at load when the Upstash env vars
-    // are missing, which local development must not require.
-    redisLib = await import('./_lib/redis.js');
-  } catch {
+  const redisLib = await loadRedis();
+  if (!redisLib) {
     // On Vercel, never run an unmetered paid endpoint. Locally, carry on.
     return process.env.VERCEL ? 'Chat is temporarily unavailable.' : null;
   }
@@ -68,26 +90,32 @@ async function checkRateLimit(req) {
 
   // Hashed so raw visitor IPs are never stored.
   const visitor = createHash('sha256').update(clientIp(req)).digest('hex').slice(0, 16);
-  const now = new Date();
-  const day = now.toISOString().slice(0, 10);
-  const minuteKey = `chat:rl:m:${visitor}:${now.toISOString().slice(0, 16)}`;
+  const now = new Date().toISOString();
+  const day = now.slice(0, 10);
+  const month = now.slice(0, 7);
+  const minuteKey = `chat:rl:m:${visitor}:${now.slice(0, 16)}`;
   const dayKey = `chat:rl:d:${visitor}:${day}`;
-  const globalKey = `chat:global:${day}`;
+  const globalDayKey = `chat:global:${day}`;
+  const globalMonthKey = `chat:global:month:${month}`;
 
-  const [perMinute, perDay, global] = await Promise.all([
-    redis.incr(minuteKey),
-    redis.incr(dayKey),
-    redis.incr(globalKey),
-  ]);
+  // Per-visitor limits first, so one visitor hammering the endpoint uses up
+  // only their own allowance, not everyone's shared daily and monthly budget.
+  const [perMinute, perDay] = await Promise.all([redis.incr(minuteKey), redis.incr(dayKey)]);
   await Promise.all([
     redis.expire(minuteKey, 120),
     redis.expire(dayKey, 2 * 24 * 60 * 60),
-    redis.expire(globalKey, 2 * 24 * 60 * 60),
   ]);
-
   if (perMinute > LIMIT_PER_MINUTE) return "You're sending messages quickly. Please wait a minute and try again.";
   if (perDay > LIMIT_PER_DAY) return "You've reached today's message limit for this chat.";
-  if (global > LIMIT_GLOBAL_PER_DAY) return 'This chat has reached its daily limit.';
+
+  const [globalDay, globalMonth] = await Promise.all([redis.incr(globalDayKey), redis.incr(globalMonthKey)]);
+  await Promise.all([
+    redis.expire(globalDayKey, 2 * 24 * 60 * 60),
+    redis.expire(globalMonthKey, 40 * 24 * 60 * 60),
+  ]);
+  const contact = 'You can still reach Shishir directly by email or LinkedIn from this page.';
+  if (globalMonth > LIMIT_GLOBAL_PER_MONTH) return `This chat has reached its monthly limit. ${contact}`;
+  if (globalDay > LIMIT_GLOBAL_PER_DAY) return `This chat has reached its limit for today. ${contact}`;
 
   // Counted here rather than through /api/track so it can't be inflated from the browser.
   await Promise.all([
@@ -103,7 +131,7 @@ function callClaude(anthropic, messages) {
     max_tokens: MAX_OUTPUT_TOKENS,
     // Short factual answers: low effort keeps replies fast and cheap.
     output_config: { effort: 'low' },
-    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+    system: [{ type: 'text', text: getSystemPrompt(), cache_control: { type: 'ephemeral' } }],
     messages,
   };
   if (SUPPORTS_FALLBACK) {
@@ -153,6 +181,23 @@ export default async function handler(req, res) {
     if (!res.writableEnded) stream.abort();
   });
 
+  const conversationId = validConversationId(body.conversationId);
+  let replyText = '';
+  // Saves this exchange; awaited before the reply is closed so it completes
+  // before Vercel freezes the function.
+  const save = async (stop) => {
+    const redisLib = conversationId && (await loadRedis());
+    if (!redisLib) return;
+    await saveTurn(redisLib.redis, {
+      id: conversationId,
+      req,
+      context: body.context,
+      user: messages.at(-1).content,
+      assistant: replyText,
+      stop,
+    });
+  };
+
   let started = false;
   const send = (payload) => {
     if (!started) {
@@ -169,16 +214,29 @@ export default async function handler(req, res) {
     let sentText = false;
     stream.on('text', (delta) => {
       sentText = true;
+      replyText += delta;
       send({ text: delta });
     });
     const final = await stream.finalMessage();
+    // Token counts only, never conversation text: shows up in the Vercel
+    // function logs (or the dev server output) for checking real cost.
+    const u = final.usage;
+    console.log(
+      'chat usage: model=%s input=%d cache_write=%d cache_read=%d output=%d stop=%s',
+      final.model, u.input_tokens, u.cache_creation_input_tokens ?? 0,
+      u.cache_read_input_tokens ?? 0, u.output_tokens, final.stop_reason,
+    );
     if (!sentText) {
       // A refusal, or a reply with no text: never leave the visitor with a blank bubble.
-      send({ text: "Sorry, I can't help with that. You can reach Shishir directly using the contact details on this page." });
+      replyText = "Sorry, I can't help with that. You can reach Shishir directly using the contact details on this page.";
+      send({ text: replyText });
     }
+    await save(final.stop_reason);
     send({ done: true, stopReason: final.stop_reason });
     res.end();
   } catch (err) {
+    // Keep the question (and any partial answer) even when the reply failed.
+    await save(res.destroyed ? 'visitor_left' : 'error');
     if (res.destroyed) return; // visitor left; nothing to report
 
     let status = 502;
