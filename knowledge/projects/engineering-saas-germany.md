@@ -7,6 +7,7 @@ Cloud project delivery. Led project delivery for a cloud-based engineering platf
 
 ## The problem
 <!-- What the client needed and why it mattered to them. -->
+Client had on premise CFD solution for his clients, They want a cloud based solution which can be used by
 
 ## His role
 <!-- What you personally owned versus the team. -->

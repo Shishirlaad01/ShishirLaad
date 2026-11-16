@@ -14,13 +14,13 @@ At HiddenBrains Infotech (Mar 2025 - present) Shishir initiated and supported th
 - Custom GPTs: identified documentation and requirements bottlenecks slowing development teams, then designed and shipped a suite of 7 custom GPTs (including FRD Creator, Figma to MD, and Scope & Proposal Creator) adopted across delivery teams. These cut requirement and documentation turnaround by about 20-30%.
 
 ## Starting point
-<!-- What did things look like before? Team size and skills, how AI work was taken on and delivered, the main problems (missed estimates, unclear scope, rework, no shared tooling...). -->
+The company has decided to have AI transformation and want to switch from manual coding to AI assisted vibe coding to cut down the execution time and 
 
 ## What he changed, in order
-<!-- The sequence of steps you took and why that order. E.g. 1) intake and estimation template, 2) tooling decision, 3) training program, 4) accelerators. What each step fixed. -->
+Worked on People, process and tools. Researched about best cost friendly tools in market, Recruited and trained the team members, Established the end to end process.
 
 ## How he trained the team
-<!-- Format (workshops, pairing, playbooks), topics covered, how long it took, how you checked people had actually picked it up. -->
+Trained the team about how to use AI effectively. What and how those tools will be there. What are the optimized way to work with tools.
 
 ## Tools and processes introduced
 <!-- Specific tools, templates, review gates, governance. Which custom GPTs came out of this and what each replaced. -->
