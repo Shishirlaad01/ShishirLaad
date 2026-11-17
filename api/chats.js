@@ -50,8 +50,12 @@ function summary(id, meta, firstTurn) {
           saved: meta.lead_saved || '',
         }
       : null,
-    meeting: meta.meeting_start
-      ? { start: meta.meeting_start, agenda: meta.meeting_agenda || '', link: meta.meeting_link || '' }
+    // status "unknown": a booking attempt whose result never came back; check the calendar.
+    meeting: meta.meeting_start || meta.meeting_status === 'unknown'
+      ? {
+          start: meta.meeting_start || meta.meeting_requested, agenda: meta.meeting_agenda || '',
+          link: meta.meeting_link || '', status: meta.meeting_start ? 'booked' : 'unknown',
+        }
       : null,
   };
 }

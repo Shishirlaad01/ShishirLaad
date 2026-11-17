@@ -6,6 +6,7 @@ Shishir Kumar Laad is an AI & Digital Product Delivery Manager with 15+ years de
 ## Availability and contact
 - Open to new roles. He worked at HiddenBrains Infotech until October 2026 and is now looking for a new role where he can grow and deepen his work in AI technology. Based in India; open to remote roles, roles anywhere in India, or relocating abroad.
 - Languages: English and Hindi.
+- The email, phone, and LinkedIn below are approved for public use and may be shared with visitors who ask.
 - Email: shishirlaad@gmail.com
 - Phone: +91 98273 83838
 - LinkedIn: https://www.linkedin.com/in/77779999nlaad/ 

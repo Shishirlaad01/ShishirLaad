@@ -261,7 +261,7 @@
         el('div', { class: 'q' }, c.lead ? `${c.lead.name}${c.lead.company ? ` · ${c.lead.company}` : ''}` : c.firstQuestion || '(no question saved)'),
         el('div', { class: 'meta' },
           c.lead ? el('span', { class: 'tag lead' }, 'Lead') : null,
-          c.meeting ? el('span', { class: 'tag lead' }, `Meeting ${new Date(c.meeting.start).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`) : null,
+          c.meeting ? el('span', { class: 'tag lead' }, `${c.meeting.status === 'unknown' ? 'Check booking' : 'Meeting'} ${new Date(c.meeting.start).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`) : null,
           el('span', {}, when(c.updated)),
           el('span', {}, flag(c.country) + place(c)),
           el('span', { class: 'tag' }, c.source),
@@ -283,14 +283,15 @@
     const l = c.lead || {};
     const meetUrl = c.meeting?.link && /^https:\/\/(meet|calendar)\.google\.com\//.test(c.meeting.link) ? c.meeting.link : '';
     return el('div', { class: 'lead-card' },
-      el('h3', {}, c.meeting ? 'Lead · meeting booked' : 'Lead · left contact details'),
+      el('h3', {}, !c.meeting ? 'Lead · left contact details'
+        : c.meeting.status === 'unknown' ? 'Lead · booking result unknown, check your calendar' : 'Lead · meeting booked'),
       l.name ? row('Name', l.name) : null,
       l.email ? row('Email', el('a', { href: `mailto:${l.email}` }, l.email)) : null,
       l.phone ? row('Phone', el('a', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}` }, l.phone)) : null,
       l.company ? row('Company', l.company) : null,
       l.role ? row('Role / need', l.role) : null,
       l.message ? row('Wants to discuss', l.message) : null,
-      c.meeting ? row('Meeting', fullTime(c.meeting.start)) : null,
+      c.meeting ? row(c.meeting.status === 'unknown' ? 'Requested time' : 'Meeting', fullTime(c.meeting.start)) : null,
       c.meeting?.agenda ? row('Agenda', c.meeting.agenda) : null,
       meetUrl ? row('Google Meet', el('a', { href: meetUrl, target: '_blank', rel: 'noopener noreferrer' }, meetUrl)) : null,
     );

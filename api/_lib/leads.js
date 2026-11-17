@@ -83,23 +83,53 @@ function withTimeout(promise, ms) {
 }
 
 // Whether the domain can receive mail: a real MX record, or (with no MX at all)
-// an address record. DNS trouble on our side is not the visitor's fault, so
-// anything other than a clear "no such domain" is accepted.
-async function domainReceivesMail(domain) {
+// an address record. Returns true, false, or null when DNS gave no answer.
+async function localDnsCheck(domain) {
   try {
-    const records = await withTimeout(dns.resolveMx(domain), 3000);
+    const records = await withTimeout(dns.resolveMx(domain), 5000);
     return records.some((r) => r.exchange && r.exchange !== '.');
   } catch (err) {
     if (err.code === 'ENOTFOUND') return false;
-    if (err.code === 'ENODATA') {
-      try {
-        return (await withTimeout(dns.resolve4(domain), 3000)).length > 0;
-      } catch (e) {
-        return e.code !== 'ENOTFOUND' && e.code !== 'ENODATA';
-      }
+    if (err.code !== 'ENODATA') return null;
+    try {
+      return (await withTimeout(dns.resolve4(domain), 5000)).length > 0;
+    } catch (e) {
+      return e.code === 'ENOTFOUND' || e.code === 'ENODATA' ? false : null;
     }
-    return true;
   }
+}
+
+// Second opinion from Google's public DNS over HTTPS, for when the local
+// resolver is slow or failing (a slow "no such domain" must not pass as valid).
+async function publicDnsCheck(domain) {
+  const ask = async (type) => {
+    const res = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${type}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error(`dns.google ${res.status}`);
+    return res.json();
+  };
+  try {
+    const mx = await ask('MX');
+    if (mx.Status === 3) return false; // NXDOMAIN: no such domain
+    if (mx.Status !== 0) return null;
+    // MX data is "<priority> <host>"; a host of "." is a null MX (no mail).
+    const hosts = (mx.Answer || []).filter((r) => r.type === 15).map((r) => r.data.trim().split(/\s+/)[1]);
+    if (hosts.some((h) => h && h !== '.')) return true;
+    if (hosts.length) return false;
+    const a = await ask('A');
+    return a.Status === 0 && (a.Answer || []).some((r) => r.type === 1);
+  } catch {
+    return null;
+  }
+}
+
+// DNS trouble on our side is not the visitor's fault: if neither check gets
+// an answer, the address is accepted.
+async function domainReceivesMail(domain) {
+  const local = await localDnsCheck(domain);
+  if (local !== null) return local;
+  return (await publicDnsCheck(domain)) ?? true;
 }
 
 async function emailError(email) {
@@ -140,12 +170,15 @@ async function countToolCall(redis, id) {
   return calls <= MAX_TOOL_CALLS_PER_CONVERSATION;
 }
 
+// Emails Shishir; true only when the email was actually sent.
 async function notify(subject, lines) {
-  if (!googleConfigured()) return;
+  if (!googleConfigured()) return false;
   try {
     await emailShishir({ subject, text: lines.filter(Boolean).join('\n') });
+    return true;
   } catch (err) {
     console.error('chat: lead email failed', err?.message || err);
+    return false;
   }
 }
 
@@ -201,21 +234,32 @@ async function saveContact(input, ctx) {
     redis.zadd(LEADS_KEY, { score: Date.now(), member: id }),
   ]);
 
-  // Email Shishir once per conversation, when the details first arrive.
-  if (!before.lead_notified) {
-    await notify(`New lead from your portfolio chat: ${lead.name}${lead.company ? `, ${lead.company}` : ''}`, [
-      'A visitor left their details with your portfolio chat assistant.',
+  // Email Shishir when the details first arrive, and again only if the
+  // visitor later corrects their email or phone.
+  const merged = { ...before, ...fields };
+  const contact = `${merged.lead_email}|${merged.lead_phone || ''}`;
+  let notified = before.lead_notified_contact === contact; // already emailed with these details
+  if (!notified) {
+    const updated = Boolean(before.lead_notified_contact);
+    const who = `${lead.name}${lead.company ? `, ${lead.company}` : ''}`;
+    notified = await notify(updated ? `Updated contact details: ${who}` : `New lead from your portfolio chat: ${who}`, [
+      updated
+        ? 'A visitor corrected their contact details. Use these:'
+        : 'A visitor left their details with your portfolio chat assistant.',
       '',
-      ...leadLines({ ...before, ...fields }, ctx),
+      ...leadLines(merged, ctx),
     ]);
-    await redis.hset(convKey(id), { lead_notified: new Date().toISOString() });
+    // Recorded only when sent, so a failed email is retried on the next save.
+    if (notified) await redis.hset(convKey(id), { lead_notified: new Date().toISOString(), lead_notified_contact: contact });
   }
   return {
     saved: true,
+    recorded: Object.fromEntries(Object.entries(lead).filter(([, v]) => v)),
+    notified,
     calendar_available: googleConfigured(),
-    note: googleConfigured()
-      ? 'Saved. Shishir has been notified. You can offer to book a one-hour meeting with him.'
-      : 'Saved. Shishir will see these details and contact the visitor directly.',
+    note: notified
+      ? 'Saved, and Shishir has been emailed these details.'
+      : 'Saved. Shishir will see these details in his chat dashboard and contact the visitor directly.',
   };
 }
 
@@ -223,6 +267,7 @@ async function findSlots(input, ctx) {
   const lead = await conversationLead(ctx.redis, ctx.conversationId);
   if (!lead.lead_email) return { error: "Save the visitor's contact details first (name and email), then look for slots." };
   if (lead.meeting_start) return { error: `A meeting is already booked for ${slotLabel(Date.parse(lead.meeting_start))}.` };
+  if (lead.meeting_status === 'unknown') return { error: 'An earlier booking attempt has an unknown result; Shishir will confirm the meeting with the visitor directly.' };
   const slots = await findFreeSlots({ fromDate: text(input.from_date, 10) });
   if (slots.length === 0) return { slots: [], note: 'No free slots in the next three weeks; tell the visitor Shishir will contact them to arrange a time.' };
   return { time_zone: 'India Standard Time (UTC+5:30)', slots };
@@ -233,6 +278,9 @@ async function bookMeeting(input, ctx) {
   const lead = await conversationLead(redis, id);
   if (!lead.lead_email) return { booked: false, error: "Save the visitor's contact details first." };
   if (lead.meeting_start) return { booked: false, error: `A meeting is already booked for ${slotLabel(Date.parse(lead.meeting_start))}; only one per conversation.` };
+  if (lead.meeting_status === 'unknown') {
+    return { booked: false, status: 'unknown', error: 'An earlier booking attempt has an unknown result. Do not try again; Shishir will confirm the meeting with the visitor directly.' };
+  }
 
   const agenda = text(input.agenda, 500);
   if (agenda.length < 10) return { booked: false, error: 'Ask the visitor for a brief agenda so Shishir can prepare.' };
@@ -255,10 +303,31 @@ async function bookMeeting(input, ctx) {
     name: lead.lead_name, email: lead.lead_email, phone: lead.lead_phone,
     company: lead.lead_company, role: lead.lead_role,
   };
-  const meeting = await createMeeting({ startMs, visitor, agenda });
   const start = new Date(startMs).toISOString();
+  let meeting;
+  try {
+    meeting = await createMeeting({ startMs, visitor, agenda });
+  } catch (err) {
+    // A timeout or dropped connection can still have created the event, so
+    // the result is unknown: never retry automatically (that could double
+    // book). Shishir is told to check his calendar and confirm.
+    console.error('chat: booking result unknown', err?.message || err);
+    await redis.hset(convKey(id), { meeting_status: 'unknown', meeting_requested: start, meeting_agenda: agenda });
+    await notify(`Check your calendar: booking for ${slotLabel(startMs)} with ${visitor.name} may not have completed`, [
+      `Your portfolio chat assistant tried to book a meeting for ${slotLabel(startMs)}, but the result is unknown.`,
+      'Check your calendar and confirm the meeting with the visitor directly.',
+      `Agenda: ${agenda}`,
+      '',
+      ...leadLines(lead, ctx),
+    ]);
+    return {
+      booked: false,
+      status: 'unknown',
+      error: 'The booking result is unknown. Do not try again. Tell the visitor Shishir will confirm the meeting with them directly.',
+    };
+  }
   await redis.hset(convKey(id), {
-    meeting_start: start, meeting_agenda: agenda, meeting_link: meeting.link, meeting_event: meeting.eventId,
+    meeting_start: start, meeting_agenda: agenda, meeting_link: meeting.link, meeting_event: meeting.eventId, meeting_status: 'booked',
   });
   await notify(`Meeting booked: ${slotLabel(startMs)} with ${visitor.name}`, [
     `Your portfolio chat assistant booked a one-hour meeting for ${slotLabel(startMs)}.`,
@@ -271,7 +340,8 @@ async function bookMeeting(input, ctx) {
     booked: true,
     when: slotLabel(startMs),
     invitation_sent_to: visitor.email,
-    note: 'The visitor will receive a Google Calendar invitation with a Google Meet link.',
+    meet_link: meeting.link || '',
+    note: 'The visitor will receive a Google Calendar invitation with the Google Meet link.',
   };
 }
 
