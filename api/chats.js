@@ -1,11 +1,13 @@
 import { timingSafeEqual } from 'node:crypto';
-import { INDEX_KEY, convKey, turnsKey, validConversationId } from './_lib/conversations.js';
+import { INDEX_KEY, RETENTION_DAYS, convKey, turnsKey, validConversationId } from './_lib/conversations.js';
+import { LEADS_KEY } from './_lib/leads.js';
 
 // Private API behind the /admin/chats page. Requires the STATS_TOKEN value in
 // an "Authorization: Bearer <token>" header (a header, not ?token=, so it
 // doesn't end up in browser history or access logs).
 //
 //   GET /api/chats?offset=0      newest conversations, PAGE_SIZE at a time
+//   GET /api/chats?leads=1&offset=0   only conversations with contact details
 //   GET /api/chats?id=<uuid>     one conversation with every exchange
 
 const PAGE_SIZE = 30;
@@ -40,17 +42,34 @@ function summary(id, meta, firstTurn) {
     landing: meta.landing || '/',
     device: meta.device || '',
     firstQuestion: parseTurn(firstTurn)?.user || '',
+    // Contact details the visitor left, and any meeting booked (api/_lib/leads.js).
+    lead: meta.lead_email
+      ? {
+          name: meta.lead_name || '', email: meta.lead_email, phone: meta.lead_phone || '',
+          company: meta.lead_company || '', role: meta.lead_role || '', message: meta.lead_message || '',
+          saved: meta.lead_saved || '',
+        }
+      : null,
+    meeting: meta.meeting_start
+      ? { start: meta.meeting_start, agenda: meta.meeting_agenda || '', link: meta.meeting_link || '' }
+      : null,
   };
 }
 
-async function listConversations(redis, offset) {
+// Lists from the index of all conversations, or (leadsOnly) of those where
+// the visitor left contact details.
+async function listConversations(redis, offset, leadsOnly) {
   const now = Date.now();
-  const [ids, total, lastWeek] = await Promise.all([
-    redis.zrange(INDEX_KEY, offset, offset + PAGE_SIZE - 1, { rev: true }),
-    redis.zcard(INDEX_KEY),
+  const key = leadsOnly ? LEADS_KEY : INDEX_KEY;
+  // The leads index has no TTL of its own either.
+  if (leadsOnly) await redis.zremrangebyscore(LEADS_KEY, 0, now - RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const [ids, total, lastWeek, leads] = await Promise.all([
+    redis.zrange(key, offset, offset + PAGE_SIZE - 1, { rev: true }),
+    redis.zcard(key),
     redis.zcount(INDEX_KEY, now - WEEK_MS, '+inf'),
+    redis.zcard(LEADS_KEY),
   ]);
-  if (ids.length === 0) return { conversations: [], total, lastWeek, nextOffset: null };
+  if (ids.length === 0) return { conversations: [], total, lastWeek, leads, nextOffset: null };
 
   const pipe = redis.pipeline();
   for (const id of ids) {
@@ -66,10 +85,10 @@ async function listConversations(redis, offset) {
     if (!meta || !meta.started) expired.push(id); // data expired, index entry left over
     else conversations.push(summary(id, meta, results[i * 2 + 1]));
   });
-  if (expired.length) await redis.zrem(INDEX_KEY, ...expired);
+  if (expired.length) await redis.zrem(key, ...expired);
 
   const nextOffset = offset + ids.length < total ? offset + ids.length : null;
-  return { conversations, total: total - expired.length, lastWeek, nextOffset };
+  return { conversations, total: total - expired.length, lastWeek, leads, nextOffset };
 }
 
 async function getConversation(redis, id) {
@@ -111,7 +130,7 @@ export default async function handler(req, res) {
       return res.status(200).json(conversation);
     }
     const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
-    return res.status(200).json(await listConversations(redis, offset));
+    return res.status(200).json(await listConversations(redis, offset, req.query.leads === '1'));
   } catch (err) {
     console.error('chats: Upstash error', err?.message || err);
     return res.status(502).json({ error: 'could not read conversations' });

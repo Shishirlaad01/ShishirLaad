@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { getSystemPrompt } from './_lib/profile.js';
 import { saveTurn, validConversationId } from './_lib/conversations.js';
+import { chatTools, runTool } from './_lib/leads.js';
 
 // POST { messages: [{ role: 'user'|'assistant', content: string }, ...],
 //        conversationId?: uuid, context?: { referrer, utmSource, page } }
@@ -17,6 +18,9 @@ const MODEL = process.env.CHAT_MODEL || 'claude-opus-5-5';
 // Thinking tokens count against this too, so it is a cost ceiling per reply,
 // not a target length — the system prompt keeps answers short.
 const MAX_OUTPUT_TOKENS = 4000;
+// Model calls per visitor message: the reply, plus up to this many rounds of
+// tool calls (save contact, find slots, book) before it must answer.
+const MAX_TOOL_ROUNDS = 3;
 
 // The browser resends the whole conversation each turn, so all of it is
 // visitor-controlled and has to be bounded here.
@@ -125,12 +129,17 @@ async function checkRateLimit(req) {
   return null;
 }
 
-function callClaude(anthropic, messages) {
+function callClaude(anthropic, messages, tools, noMoreTools = false) {
   const params = {
     model: MODEL,
     max_tokens: MAX_OUTPUT_TOKENS,
     // Short factual answers: low effort keeps replies fast and cheap.
     output_config: { effort: 'low' },
+    // Tools sit before the system prompt in the cached prefix; both are the
+    // same on every request, so the cache covers them. They stay defined even
+    // when no more calls are allowed, since the turn may hold earlier calls.
+    tools,
+    ...(noMoreTools ? { tool_choice: { type: 'none' } } : {}),
     system: [{ type: 'text', text: getSystemPrompt(), cache_control: { type: 'ephemeral' } }],
     messages,
   };
@@ -174,14 +183,23 @@ export default async function handler(req, res) {
   }
 
   const anthropic = new Anthropic();
-  const stream = callClaude(anthropic, messages);
+  const tools = chatTools();
+  let stream = null;
 
   // Stop paying for a reply nobody is reading.
   res.on('close', () => {
-    if (!res.writableEnded) stream.abort();
+    if (!res.writableEnded) stream?.abort();
   });
 
   const conversationId = validConversationId(body.conversationId);
+  const redisLib = conversationId ? await loadRedis() : null;
+  const proto = req.headers['x-forwarded-proto'] || (process.env.VERCEL ? 'https' : 'http');
+  const toolContext = {
+    redis: redisLib?.redis ?? null,
+    conversationId,
+    userMessages: messages.filter((m) => m.role === 'user').map((m) => m.content),
+    siteUrl: `${proto}://${req.headers.host}`,
+  };
   let replyText = '';
   // Saves this exchange; awaited before the reply is closed so it completes
   // before Vercel freezes the function.
@@ -212,20 +230,47 @@ export default async function handler(req, res) {
 
   try {
     let sentText = false;
-    stream.on('text', (delta) => {
-      sentText = true;
-      replyText += delta;
-      send({ text: delta });
-    });
-    const final = await stream.finalMessage();
-    // Token counts only, never conversation text: shows up in the Vercel
-    // function logs (or the dev server output) for checking real cost.
-    const u = final.usage;
-    console.log(
-      'chat usage: model=%s input=%d cache_write=%d cache_read=%d output=%d stop=%s',
-      final.model, u.input_tokens, u.cache_creation_input_tokens ?? 0,
-      u.cache_read_input_tokens ?? 0, u.output_tokens, final.stop_reason,
-    );
+    const turn = [...messages];
+    let final;
+    for (let round = 0; ; round++) {
+      // Text from an earlier round (rare: tools are meant to be called before
+      // writing) is kept apart from what follows.
+      let breakPending = Boolean(replyText) && !/\s$/.test(replyText);
+      // The last round may not call tools, so it has to answer.
+      stream = callClaude(anthropic, turn, tools, round >= MAX_TOOL_ROUNDS);
+      stream.on('text', (delta) => {
+        if (breakPending) {
+          breakPending = false;
+          replyText += '\n\n';
+          send({ text: '\n\n' });
+        }
+        sentText = true;
+        replyText += delta;
+        send({ text: delta });
+      });
+      final = await stream.finalMessage();
+      // Token counts only, never conversation text: shows up in the Vercel
+      // function logs (or the dev server output) for checking real cost.
+      const u = final.usage;
+      console.log(
+        'chat usage: model=%s round=%d input=%d cache_write=%d cache_read=%d output=%d stop=%s',
+        final.model, round, u.input_tokens, u.cache_creation_input_tokens ?? 0,
+        u.cache_read_input_tokens ?? 0, u.output_tokens, final.stop_reason,
+      );
+
+      // Run tools only on a clean tool_use stop: a refusal or max_tokens can
+      // cut a call off mid-input.
+      const calls = final.content.filter((b) => b.type === 'tool_use');
+      if (final.stop_reason !== 'tool_use' || calls.length === 0) break;
+      turn.push({ role: 'assistant', content: final.content });
+      const results = [];
+      for (const call of calls) {
+        const { content, isError } = await runTool(call.name, call.input, toolContext);
+        console.log('chat tool: %s error=%s', call.name, isError);
+        results.push({ type: 'tool_result', tool_use_id: call.id, content, is_error: isError });
+      }
+      turn.push({ role: 'user', content: results });
+    }
     if (!sentText) {
       // A refusal, or a reply with no text: never leave the visitor with a blank bubble.
       replyText = "Sorry, I can't help with that. You can reach Shishir directly using the contact details on this page.";
