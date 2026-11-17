@@ -49,20 +49,24 @@ function toApiMessages(history) {
   return sent.map(m => ({ role: m.role, content: m.text }));
 }
 
-// Turns http(s) URLs in a reply into links (the bot shares GPT and video links
-// as plain URLs). Trailing punctuation stays outside the link. React escapes
-// the text, and only http/https URLs ever become hrefs.
-const URL_PATTERN = /https?:\/\/[^\s<>"]+/g;
+// Turns http(s) URLs, email addresses and phone numbers in a reply into links
+// (the bot writes them as plain text). Trailing punctuation stays outside the
+// link. React escapes the text, and hrefs are only ever http(s), mailto or tel.
+const LINK_PATTERN = /https?:\/\/[^\s<>"]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+|\+\d[\d -]{8,}\d/g;
 function linkify(text) {
   const parts = [];
   let last = 0;
-  for (const match of text.matchAll(URL_PATTERN)) {
-    const url = match[0].replace(/[.,;:!?)\]]+$/, '');
+  for (const match of text.matchAll(LINK_PATTERN)) {
+    const value = match[0].replace(/[.,;:!?)\]]+$/, '');
     if (match.index > last) parts.push(text.slice(last, match.index));
-    parts.push(
-      <a key={match.index} href={url} target="_blank" rel="noopener noreferrer">{url}</a>,
-    );
-    last = match.index + url.length;
+    if (value.startsWith('http')) {
+      parts.push(<a key={match.index} href={value} target="_blank" rel="noopener noreferrer">{value}</a>);
+    } else if (value.includes('@')) {
+      parts.push(<a key={match.index} href={`mailto:${value}`}>{value}</a>);
+    } else {
+      parts.push(<a key={match.index} href={`tel:${value.replace(/[ -]/g, '')}`}>{value}</a>);
+    }
+    last = match.index + value.length;
   }
   if (last < text.length) parts.push(text.slice(last));
   return parts;

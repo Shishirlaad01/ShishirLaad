@@ -1,7 +1,7 @@
 # Building the AI delivery function at HiddenBrains
 
 ## Summary
-At HiddenBrains Infotech (Mar 2025 - present) Shishir initiated and supported the growth of an internal AI engineering function, introducing structured delivery practices, project governance, AI-assisted workflows, reusable accelerators, and practical team enablement. This reduced turnaround time by 20-30%.
+At HiddenBrains Infotech (Mar 2025 - Oct 2026) Shishir initiated and supported the growth of an internal AI engineering function, introducing structured delivery practices, project governance, AI-assisted workflows, reusable accelerators, and practical team enablement. This reduced turnaround time by 20-30%.
 
 ## Outcomes
 - Team scaling: supported growth from 4 to 30+ AI professionals; hands-on training and onboarding for 40+ developers.

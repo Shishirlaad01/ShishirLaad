@@ -25,7 +25,7 @@ Shishir is open to three kinds of roles. For each, here is the experience that b
 - Has held the Product Owner role in his career, and does product ownership work as part of his project manager roles.
 - FinTech (New Zealand): shaped and prioritized the roadmap and backlog of an AR/AP automation product (epics, user stories, acceptance criteria) using market research, competitor analysis, and sales and prospect input. Introduced AI-based invoice capture (ABBYY Vantage OCR). Worked as the organization's bookkeeper to learn the domain hands-on, including Xero and MYOB integrations and workflows, to guide product decisions.
 - AI products: at HiddenBrains he spotted a documentation and requirements bottleneck slowing development teams, then designed and shipped a suite of 7 custom GPTs that cut requirement and documentation turnaround by about 20-30%, and drove their adoption.
-- Discovery and requirements: owns client discovery and requirements across 5+ concurrent products at HiddenBrains; writes BRDs, FRDs, PRDs, and SRS documents; produces wireframes and prototypes in Figma and Axure.
+- Discovery and requirements: owned client discovery and requirements across 5+ concurrent products at HiddenBrains; writes BRDs, FRDs, PRDs, and SRS documents; produces wireframes and prototypes in Figma and Axure.
 - Business analysis foundation: worked as a Senior Business Analyst, and has led BA teams for years.
 - Healthcare: led delivery for a US healthcare research platform on web, iOS, and Android built to HIPAA and GDPR requirements, and later led the vendor-side team for a US healthcare product, translating client needs into delivery priorities.
 - Domain range: FinTech, Healthcare, InsurTech, E-Governance, B2B SaaS, E-commerce, marketplaces.
