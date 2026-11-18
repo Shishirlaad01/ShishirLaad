@@ -4,7 +4,7 @@
 Shishir Kumar Laad is an AI & Digital Product Delivery Manager with 15+ years delivering AI and digital products across FinTech, Healthcare, E-Governance, and SaaS. He is a certified Project Manager and Scrum Master who leads cross-functional teams and international client engagements from product discovery and requirements through development, implementation, and delivery. He works with Agile, Waterfall, and Hybrid methodologies.
 
 ## Availability and contact
-- Open to new roles. He worked at HiddenBrains Infotech until October 2026 and is now looking for a new role where he can grow and deepen his work in AI technology. Based in India; open to remote roles, roles anywhere in India, or relocating abroad.
+- Open to new roles. He worked at HiddenBrains Infotech until October 2026 and is now looking for a new role where he can grow and deepen his work in AI technology. Currently located in Ahmedabad, Gujarat; his base (home) location is Indore, Madhya Pradesh. Open to remote roles, roles anywhere in India, or relocating abroad. Can join within 15 days (current and public).
 - Languages: English and Hindi.
 - The email, phone, and LinkedIn below are approved for public use and may be shared with visitors who ask.
 - Email: shishirlaad@gmail.com
