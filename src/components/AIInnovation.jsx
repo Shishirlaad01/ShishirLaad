@@ -14,7 +14,7 @@ const gpts = [
   { name: 'FRD to MD Generator', desc: 'Converts FRD documents into developer-ready markdown', url: 'https://chatgpt.com/g/g-695ea049a8a0819196f396b6c27b712b-hb-frd-to-md-file-generator', slug: 'frd-to-md' },
   // Paid products: open the Razorpay checkout modal (see src/lib/kit.js). The events
   // must be listed in api/_lib/redis.js. An empty demoUrl leaves "Watch it in action" unclickable.
-  { name: 'Claude skill for Job emails', desc: 'Send Tailored email fit as per Job description', paid: true, product: 'job-email-skill', payEvent: 'job_email_pay_click', demoEvent: 'job_email_demo_click', demoUrl: '' },
+  { name: 'Claude skill for Job emails', desc: 'Send Tailored email fit as per Job description', paid: true, product: 'job-email-skill', payEvent: 'job_email_pay_click', demoEvent: 'job_email_demo_click', demoUrl: 'https://www.youtube.com/watch?v=wvbmhXTsdjE' },
   { name: 'Delivery Cockpit', desc: 'Project status dashboard', paid: true, product: 'delivery-cockpit', payEvent: 'cockpit_pay_click', demoEvent: 'cockpit_demo_click', demoUrl: 'https://www.youtube.com/watch?v=kQxPiCexGJw&t' },
 ];
 
