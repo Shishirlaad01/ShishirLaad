@@ -61,6 +61,19 @@
   /* list + detail */
   .layout { display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 16px; align-items: start; }
   .list { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+  .row:has(.pick:checked) { background: var(--amber-soft); }
+  .pick-wrap { display: flex; align-items: flex-start; padding: 15px 0 0 14px; cursor: pointer; }
+  .pick { width: 16px; height: 16px; accent-color: var(--amber); cursor: pointer; }
+  .row .item { border-bottom: 0; }
+  .bulk { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 0.84rem; color: var(--muted); }
+  .bulk label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .bulk .spacer { flex: 1; }
+  .danger { background: transparent; color: var(--rose); border: 1px solid rgba(217,79,122,0.45); border-radius: 999px; padding: 5px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+  .danger:hover:not(:disabled) { background: rgba(217,79,122,0.1); border-color: var(--rose); }
+  .danger:disabled { opacity: 0.45; cursor: default; }
+  .detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .detail-head h2 { flex: 1; margin-bottom: 0; }
   .item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); padding: 13px 16px; cursor: pointer; }
   .item:hover { background: var(--amber-soft); }
   .item[aria-current="true"] { background: var(--selected); box-shadow: inset 3px 0 0 var(--amber); }
@@ -150,6 +163,7 @@
   let conversations = [];
   let nextOffset = 0;
   let selectedId = null;
+  const picked = new Set(); // ticked for bulk delete
 
   const el = (tag, props = {}, ...children) => {
     const node = document.createElement(tag);
@@ -178,8 +192,12 @@
   };
   const fullTime = (iso) => iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
 
-  async function api(query) {
-    const res = await fetch(`/api/chats${query}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+  async function api(query, init = {}) {
+    const res = await fetch(`/api/chats${query}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, ...(init.body ? { 'Content-Type': 'application/json' } : {}) },
+      cache: 'no-store',
+    });
     if (res.status === 401) { signOut('That token was not accepted.'); throw new Error('unauthorized'); }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -197,7 +215,7 @@
   async function start() {
     $('login').hidden = true; $('app').hidden = false;
     $('refresh').hidden = false; $('signout').hidden = false;
-    conversations = []; nextOffset = 0;
+    conversations = []; nextOffset = 0; picked.clear();
     await loadMore();
     if (location.hash.length > 1) openConversation(location.hash.slice(1));
   }
@@ -253,9 +271,34 @@
   function renderList() {
     const items = visible();
     const list = $('list');
+    for (const id of [...picked]) if (!conversations.some(c => c.id === id)) picked.delete(id);
+    const allPicked = items.length > 0 && items.every(c => picked.has(c.id));
+    const bulk = items.length === 0 ? null : el('div', { class: 'bulk' },
+      el('label', {},
+        el('input', { type: 'checkbox', class: 'pick', 'aria-label': 'Select all shown conversations', onchange: (e) => {
+          for (const c of items) e.target.checked ? picked.add(c.id) : picked.delete(c.id);
+          renderList();
+        } }),
+        picked.size ? `${picked.size} selected` : 'Select all'),
+      el('span', { class: 'spacer' }),
+      el('button', { class: 'danger', type: 'button', onclick: () => deleteChats([...picked]) }, 'Delete selected'));
+    if (bulk) {
+      bulk.querySelector('input').checked = allPicked;
+      bulk.querySelector('button').disabled = picked.size === 0;
+    }
     list.replaceChildren(
-      ...items.map(c => el('button', {
-          class: 'item', role: 'listitem', type: 'button',
+      ...(bulk ? [bulk] : []),
+      ...items.map(c => el('div', { class: 'row', role: 'listitem' },
+        el('label', { class: 'pick-wrap' }, (() => {
+          const box = el('input', { type: 'checkbox', class: 'pick', 'aria-label': 'Select this conversation', onchange: (e) => {
+            e.target.checked ? picked.add(c.id) : picked.delete(c.id);
+            renderList();
+          } });
+          box.checked = picked.has(c.id);
+          return box;
+        })()),
+        el('button', {
+          class: 'item', type: 'button',
           'aria-current': String(c.id === selectedId), onclick: () => openConversation(c.id),
         },
         el('div', { class: 'q' }, c.lead ? `${c.lead.name}${c.lead.company ? ` · ${c.lead.company}` : ''}` : c.firstQuestion || '(no question saved)'),
@@ -266,7 +309,7 @@
           el('span', {}, flag(c.country) + place(c)),
           el('span', { class: 'tag' }, c.source),
           el('span', {}, `${c.device} · ${c.turns} msg${c.turns === 1 ? '' : 's'}`)),
-      )),
+      ))),
     );
     if (items.length === 0) {
       list.append(el('p', { class: 'empty' }, conversations.length ? 'No conversations match these filters.' : 'No conversations saved yet. They appear here after a visitor chats.'));
@@ -316,7 +359,9 @@
       ];
       detail.replaceChildren(
         el('button', { class: 'back', type: 'button', onclick: () => { $('layout').classList.remove('showing-detail'); selectedId = null; history.replaceState(null, '', location.pathname); renderList(); } }, '← All conversations'),
-        el('h2', {}, `${c.exchanges.length} exchange${c.exchanges.length === 1 ? '' : 's'}`),
+        el('div', { class: 'detail-head' },
+          el('h2', {}, `${c.exchanges.length} exchange${c.exchanges.length === 1 ? '' : 's'}`),
+          el('button', { class: 'danger', type: 'button', onclick: () => deleteChats([c.id]) }, 'Delete chat')),
         leadCard(c),
         el('dl', { class: 'facts' }, ...facts.map(([k, v]) => el('div', {}, el('dt', {}, k), el('dd', {}, v || '–')))),
         ...c.exchanges.map(x => {
@@ -332,6 +377,43 @@
     } catch (err) {
       if (err.message !== 'unauthorized') detail.replaceChildren(el('p', { class: 'empty' }, `Could not open this conversation: ${err.message}`));
     }
+  }
+
+  function closeDetail() {
+    $('layout').classList.remove('showing-detail');
+    selectedId = null;
+    history.replaceState(null, '', location.pathname);
+    $('detail').replaceChildren(el('p', { class: 'empty' }, 'Pick a conversation to read it.'));
+  }
+
+  // Permanent: asks first, then removes the chats here without a full reload.
+  async function deleteChats(ids) {
+    if (ids.length === 0) return;
+    const leads = conversations.filter(c => ids.includes(c.id) && c.lead).length;
+    const what = ids.length === 1 ? 'this chat' : `${ids.length} chats`;
+    const warn = leads ? `\n\n${leads === 1 && ids.length === 1 ? 'It has' : `${leads} of them have`} a lead's contact details, which will be deleted too.` : '';
+    if (!confirm(`Delete ${what} permanently? This cannot be undone.${warn}`)) return;
+    $('app-error').textContent = '';
+    try {
+      // The server takes at most 100 ids per request.
+      for (let i = 0; i < ids.length; i += 100) {
+        await api('', { method: 'DELETE', body: JSON.stringify({ ids: ids.slice(i, i + 100) }) });
+      }
+    } catch (err) {
+      if (err.message !== 'unauthorized') $('app-error').textContent = `Could not delete: ${err.message}`;
+      return;
+    }
+    const gone = new Set(ids);
+    const removed = conversations.filter(c => gone.has(c.id));
+    conversations = conversations.filter(c => !gone.has(c.id));
+    // Later pages shift up by the number removed; keep "Load older" from skipping any.
+    if (nextOffset !== null) nextOffset = Math.max(0, nextOffset - removed.length);
+    for (const id of ids) picked.delete(id);
+    const dec = (id, n) => { const v = Number($(id).textContent); if (Number.isFinite(v)) $(id).textContent = Math.max(0, v - n); };
+    if ($('f-leads').value !== '1') dec('s-total', removed.length);
+    dec('s-leads', removed.filter(c => c.lead).length);
+    if (selectedId && gone.has(selectedId)) closeDetail();
+    renderFilters(); renderStats(); renderList();
   }
 
   $('login').addEventListener('submit', async (e) => {

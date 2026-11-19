@@ -9,6 +9,7 @@ import { LEADS_KEY } from './_lib/leads.js';
 //   GET /api/chats?offset=0      newest conversations, PAGE_SIZE at a time
 //   GET /api/chats?leads=1&offset=0   only conversations with contact details
 //   GET /api/chats?id=<uuid>     one conversation with every exchange
+//   DELETE /api/chats  body { ids: [<uuid>, ...] }   permanently deletes them
 
 const PAGE_SIZE = 30;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -105,11 +106,22 @@ async function getConversation(redis, id) {
   return { ...summary(id, meta, turns[0]), exchanges: parsed };
 }
 
+const MAX_DELETE = 100;
+
+// Removes the transcript, its details, and its entries in both indexes.
+async function deleteConversations(redis, ids) {
+  const pipe = redis.pipeline();
+  for (const id of ids) pipe.del(convKey(id), turnsKey(id));
+  pipe.zrem(INDEX_KEY, ...ids);
+  pipe.zrem(LEADS_KEY, ...ids);
+  await pipe.exec();
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET');
+  if (req.method !== 'GET' && req.method !== 'DELETE') {
+    res.setHeader('Allow', 'GET, DELETE');
     return res.status(405).json({ error: 'method not allowed' });
   }
   if (!process.env.STATS_TOKEN) {
@@ -124,6 +136,25 @@ export default async function handler(req, res) {
     ({ redis } = await import('./_lib/redis.js'));
   } catch {
     return res.status(503).json({ error: 'Upstash is not configured' });
+  }
+
+  if (req.method === 'DELETE') {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch { body = null; }
+    }
+    const raw = Array.isArray(body?.ids) ? body.ids : [];
+    const ids = [...new Set(raw.map(validConversationId))];
+    if (ids.length === 0 || ids.length > MAX_DELETE || ids.includes(null)) {
+      return res.status(400).json({ error: `send 1 to ${MAX_DELETE} valid conversation ids` });
+    }
+    try {
+      await deleteConversations(redis, ids);
+      return res.status(200).json({ deleted: ids.length });
+    } catch (err) {
+      console.error('chats: Upstash delete error', err?.message || err);
+      return res.status(502).json({ error: 'could not delete conversations' });
+    }
   }
 
   try {
