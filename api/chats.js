@@ -43,9 +43,9 @@ function summary(id, meta, firstTurn) {
     device: meta.device || '',
     firstQuestion: parseTurn(firstTurn)?.user || '',
     // Contact details the visitor left, and any meeting booked (api/_lib/leads.js).
-    lead: meta.lead_email
+    lead: meta.lead_email || meta.lead_phone
       ? {
-          name: meta.lead_name || '', email: meta.lead_email, phone: meta.lead_phone || '',
+          name: meta.lead_name || '', email: meta.lead_email || '', phone: meta.lead_phone || '',
           company: meta.lead_company || '', role: meta.lead_role || '', message: meta.lead_message || '',
           saved: meta.lead_saved || '',
         }

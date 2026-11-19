@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { track } from '../lib/track.js';
+import { startCheckout, productTitle, PAY_EVENTS } from '../lib/kit.js';
+import KitToast from './KitToast.jsx';
 
 const GREETING = "Hi, I'm Shishir's AI assistant. Ask me about his experience, projects, or how he can help with your AI initiative.";
 
@@ -83,6 +85,20 @@ function formatReply(text) {
   ));
 }
 
+// The bot asks for a Buy button by writing [[buy:<product id>]] in its reply
+// (see api/_lib/profile.js). Markers are cut out of the text, and an unfinished
+// one at the end of a streaming reply is hidden until it completes.
+const BUY_MARKER = /\[\[buy:([a-z-]+)\]\]/g;
+const PARTIAL_MARKER = /\[(\[(b(u(y(:[a-z-]*(\])?)?)?)?)?)?$/;
+function splitReply(text) {
+  const products = [];
+  for (const [, id] of text.matchAll(BUY_MARKER)) {
+    if (productTitle(id) && !products.includes(id)) products.push(id);
+  }
+  const clean = text.replace(BUY_MARKER, '').replace(PARTIAL_MARKER, '').replace(/[ \t]+\n/g, '\n').trimEnd();
+  return { clean, products };
+}
+
 // Reads the endpoint's server-sent events, calling onText with each chunk.
 async function readReply(res, onText) {
   const reader = res.body.getReader();
@@ -110,6 +126,7 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState([{ role: 'assistant', text: GREETING, local: true }]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [kitStatus, setKitStatus] = useState(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const openedOnce = useRef(false);
@@ -244,9 +261,31 @@ export default function ChatWidget() {
         </header>
 
         <div className="chat-messages" ref={listRef} aria-live="polite">
-          {messages.map((m, i) => (
-            <p key={i} className={`chat-msg is-${m.role}`}>{m.role === 'assistant' ? formatReply(m.text) : m.text}</p>
-          ))}
+          {messages.map((m, i) => {
+            if (m.role !== 'assistant') return <p key={i} className="chat-msg is-user">{m.text}</p>;
+            const { clean, products } = splitReply(m.text);
+            return (
+              <Fragment key={i}>
+                {clean && <p className="chat-msg is-assistant">{formatReply(clean)}</p>}
+                {products.length > 0 && (
+                  <div className="chat-buy">
+                    {products.map(id => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => {
+                          track(PAY_EVENTS[id]);
+                          startCheckout(setKitStatus, id);
+                        }}
+                      >
+                        Buy {productTitle(id)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
           {typing && (
             <p className="chat-msg is-assistant chat-typing" aria-label="Assistant is typing">
               <span /><span /><span />
@@ -286,6 +325,9 @@ export default function ChatWidget() {
         </form>
         <p className="chat-notice">Chats are saved so Shishir can follow up.</p>
       </div>
+
+      {/* Outside the panel so it stays visible (and fixed to the page) if the chat is closed. */}
+      <KitToast status={kitStatus} onDismiss={() => setKitStatus(null)} />
 
       <button
         type="button"

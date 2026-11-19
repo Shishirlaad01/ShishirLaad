@@ -238,6 +238,14 @@ ul { list-style: none; }
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 .chat-starters button:hover { background: rgba(200,117,47,0.08); border-color: var(--amber); }
+.chat-buy { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 8px; }
+.chat-buy button {
+  font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  color: #fff; background: var(--amber); border: 0; border-radius: 999px; padding: 8px 16px;
+  transition: background 0.2s ease;
+}
+.chat-buy button:hover { background: var(--rose); }
+.chat-buy button:focus-visible { outline: 2px solid var(--amber-light); outline-offset: 3px; }
 
 .chat-form {
   display: flex; align-items: center; gap: 8px;

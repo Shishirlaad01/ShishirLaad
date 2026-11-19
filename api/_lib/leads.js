@@ -23,18 +23,18 @@ const MAX_BOOKINGS_PER_DAY = 5;
 const SAVE_CONTACT = {
   name: 'save_visitor_contact',
   description:
-    "Save the visitor's contact details so Shishir can contact them. Call this as soon as the visitor has shared at least their name and email address. Only pass details the visitor typed themselves in this conversation. The result says whether the details were valid and saved; if not, it says what to ask the visitor to correct.",
+    "Save the visitor's contact details so Shishir can contact them. Call this as soon as the visitor has shared their name and at least a phone number or an email address. Only pass details the visitor typed themselves in this conversation. The result says whether the details were valid and saved; if not, it says what to ask the visitor to correct.",
   input_schema: {
     type: 'object',
     properties: {
       name: { type: 'string', description: "The visitor's name." },
-      email: { type: 'string', description: "The visitor's email address, exactly as they typed it." },
+      email: { type: 'string', description: "The visitor's email address, exactly as they typed it, if they shared one. Needed to book a meeting." },
       phone: { type: 'string', description: "The visitor's phone number with country code, if they shared one." },
       company: { type: 'string', description: 'Their company, if shared.' },
       role: { type: 'string', description: 'The role or position they are hiring for, or what they want help with, if shared.' },
       message: { type: 'string', description: 'A one-sentence summary of what the visitor wants to discuss with Shishir.' },
     },
-    required: ['name', 'email'],
+    required: ['name'],
   },
 };
 
@@ -185,7 +185,7 @@ async function notify(subject, lines) {
 function leadLines(lead, ctx) {
   return [
     `Name: ${lead.lead_name}`,
-    `Email: ${lead.lead_email}`,
+    lead.lead_email && `Email: ${lead.lead_email}`,
     lead.lead_phone && `Phone: ${lead.lead_phone}`,
     lead.lead_company && `Company: ${lead.lead_company}`,
     lead.lead_role && `Role / need: ${lead.lead_role}`,
@@ -208,10 +208,13 @@ async function saveContact(input, ctx) {
   };
   const problems = [];
   if (lead.name.length < 2) problems.push("The visitor's name is missing.");
-  const badEmail = await emailError(lead.email);
-  if (badEmail) problems.push(badEmail);
-  else if (!typedByVisitor(lead.email, ctx.userMessages, (s) => s.toLowerCase())) {
-    problems.push('The email address must be one the visitor typed; ask them for it.');
+  if (!lead.email && !lead.phone) problems.push('Ask the visitor for their phone number or email address.');
+  if (lead.email) {
+    const badEmail = await emailError(lead.email);
+    if (badEmail) problems.push(badEmail);
+    else if (!typedByVisitor(lead.email, ctx.userMessages, (s) => s.toLowerCase())) {
+      problems.push('The email address must be one the visitor typed; ask them for it.');
+    }
   }
   if (lead.phone) {
     const badPhone = phoneError(lead.phone);
@@ -237,7 +240,7 @@ async function saveContact(input, ctx) {
   // Email Shishir when the details first arrive, and again only if the
   // visitor later corrects their email or phone.
   const merged = { ...before, ...fields };
-  const contact = `${merged.lead_email}|${merged.lead_phone || ''}`;
+  const contact = `${merged.lead_email || ''}|${merged.lead_phone || ''}`;
   let notified = before.lead_notified_contact === contact; // already emailed with these details
   if (!notified) {
     const updated = Boolean(before.lead_notified_contact);
@@ -265,7 +268,7 @@ async function saveContact(input, ctx) {
 
 async function findSlots(input, ctx) {
   const lead = await conversationLead(ctx.redis, ctx.conversationId);
-  if (!lead.lead_email) return { error: "Save the visitor's contact details first (name and email), then look for slots." };
+  if (!lead.lead_email) return { error: "The meeting invitation goes by email: ask for the visitor's email address and save it with save_visitor_contact first, then look for slots." };
   if (lead.meeting_start) return { error: `A meeting is already booked for ${slotLabel(Date.parse(lead.meeting_start))}.` };
   if (lead.meeting_status === 'unknown') return { error: 'An earlier booking attempt has an unknown result; Shishir will confirm the meeting with the visitor directly.' };
   const slots = await findFreeSlots({ fromDate: text(input.from_date, 10) });
@@ -276,7 +279,7 @@ async function findSlots(input, ctx) {
 async function bookMeeting(input, ctx) {
   const { redis, conversationId: id } = ctx;
   const lead = await conversationLead(redis, id);
-  if (!lead.lead_email) return { booked: false, error: "Save the visitor's contact details first." };
+  if (!lead.lead_email) return { booked: false, error: "Save the visitor's email address first; the invitation is sent there." };
   if (lead.meeting_start) return { booked: false, error: `A meeting is already booked for ${slotLabel(Date.parse(lead.meeting_start))}; only one per conversation.` };
   if (lead.meeting_status === 'unknown') {
     return { booked: false, status: 'unknown', error: 'An earlier booking attempt has an unknown result. Do not try again; Shishir will confirm the meeting with the visitor directly.' };

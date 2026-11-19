@@ -14,6 +14,14 @@ const PRODUCTS = {
   },
 };
 
+// For the chat's Buy button: null for anything that isn't a product id.
+export function productTitle(id) {
+  return Object.hasOwn(PRODUCTS, id) ? PRODUCTS[id].title : null;
+}
+
+// Analytics event for a pay click, as listed in api/_lib/redis.js EVENT_FIELDS.
+export const PAY_EVENTS = { 'delivery-cockpit': 'cockpit_pay_click', 'job-email-skill': 'job_email_pay_click' };
+
 const CHECKOUT_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js';
 
 let scriptPromise;
